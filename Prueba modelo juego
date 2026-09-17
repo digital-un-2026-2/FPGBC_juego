@@ -1,0 +1,91 @@
+#include <gb/gb.h>
+#include "Tile1.c"
+#include "Tile2.c"
+#include "Mapa.c"
+#include "nivel1.c"
+
+struct Objeto 
+{ 
+    UBYTE spiritids[4]; 
+    UINT8 x, y; 
+};
+
+unsigned char oldplx, plx, ply, pldir;
+struct Objeto jugador;
+signed char scrollx;
+
+void moverObjeto(struct Objeto* obj, UINT8 x, UINT8 y){
+    move_sprite(obj->spiritids[0],x,y);
+    move_sprite(obj->spiritids[1],x+8,y);
+    move_sprite(obj->spiritids[2],x,y+8);
+    move_sprite(obj->spiritids[3],x+8,y+8);
+}
+
+void setupJugador(){
+    jugador.x = plx;
+    jugador.y = ply;
+
+    set_sprite_tile(1,1);
+    jugador.spiritids[0]=1;
+    set_sprite_tile(2,2);
+    jugador.spiritids[1]=2;
+    set_sprite_tile(3,3);
+    jugador.spiritids[2]=3;
+    set_sprite_tile(4,4);
+    jugador.spiritids[3]=4;
+}
+
+void main(){
+    plx=16; 
+    ply=16;
+    oldplx = plx;
+
+    set_sprite_data(0, 13, TileLabel2); 
+
+    set_bkg_data(0,43,MapaLabel);
+    set_bkg_tiles(0,0,32,16,Nivel1Label);
+
+    SHOW_SPRITES;
+    SHOW_BKG;
+
+    setupJugador();
+
+    while(1){
+        jugador.x = plx;
+        jugador.y = ply;
+
+        if (joypad() & J_RIGHT){ 
+             if(plx<256-8)
+            ++plx; 
+            pldir=1;
+        }
+        if (joypad() & J_LEFT){ 
+            if(plx>8)
+            --plx; 
+            pldir=0;
+        }
+        if (joypad() & J_UP){ 
+            --ply; 
+        }
+        if (joypad() & J_DOWN){ 
+            ++ply; 
+        }
+
+        if(oldplx<plx){scrollx=-1; oldplx=plx;}
+        if(oldplx>plx){scrollx=1; oldplx=plx;}
+
+        if(plx>=80-!pldir && plx<256-80+pldir){
+            moverObjeto(&jugador,80,ply); 
+            scroll_bkg(-scrollx,0);
+        }
+
+        else
+        if (plx>=256-80+pldir)
+        moverObjeto(&jugador, plx-256-80+pldir-16,ply);
+        else
+        moverObjeto(&jugador,plx,ply); 
+
+        if(oldplx==plx){scrollx=0;}
+        delay(10);
+    }
+}
