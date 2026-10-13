@@ -8,7 +8,7 @@
    Section       : 
    Bank          : 0
    Map size      : 32 x 16
-   Tile set      : C:\gbdk-win32\gbdk\examples\gb\Ejemplo1\Mapa.gbr
+   Tile set      : Mapa.gbr
    Plane count   : 1 plane (8 bits)
    Plane order   : Tiles are continues
    Tile offset   : 0

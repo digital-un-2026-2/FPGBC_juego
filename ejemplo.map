@@ -24,20 +24,20 @@ Area                       Addr        Size        Decimal Bytes (Attributes)
      00000002  l__HEADER |    00000002  l__HEADER |    00000003  l__HEADER
      00000005  l__HEADER |    00000006  l__HEADER |    00000007  l__HEADER
      00000008  l__HEADER |    0000000C  l__GSINIT |    00000013  l__HRAM  
-     0000001C  l__DATA   |    00000030  l__HEADER |    00000060  l__HEADER
-     000000AB  l__HEADER |    00000157  l__HOME   |    00000200  s__CODE  
-     0000020A  l__CODE   |    0000040A  s__HOME   |    00000561  s__BASE  
-     00000561  s__CODE_0 |    00000561  s__INITIA |    00000561  s__LIT   
-     000005A1  l__INITIA |    000005A1  l__INITIA |    00000B02  s__GSINIT
-     00000B0E  s__GSFINA |    00002000  _rROMB0   |    00003000  _rROMB1  
+     00000030  l__HEADER |    00000060  l__HEADER |    000000AB  l__HEADER
+     000000DF  l__DATA   |    0000016B  l__HOME   |    00000200  s__CODE  
+     00000893  l__INITIA |    00000893  l__INITIA |    00001085  l__CODE  
+     00001285  s__HOME   |    000013F0  s__BASE   |    000013F0  s__CODE_0
+     000013F0  s__INITIA |    000013F0  s__LIT    |    00001C83  s__GSINIT
+     00001C8F  s__GSFINA |    00002000  _rROMB0   |    00003000  _rROMB1  
      00004000  _rMBC7_SR |    00004000  _rRAMB    |    00008000  __VRAM   
      00008000  __VRAM800 |    00008800  __VRAM880 |    00009000  __VRAM900
      00009800  __SCRN0   |    00009C00  __SCRN1   |    0000A000  __SRAM   
      0000A000  _rMBC7_LA |    0000A010  _rMBC7_LA |    0000A020  _rMBC7_AC
      0000A030  _rMBC7_AC |    0000A040  _rMBC7_AC |    0000A050  _rMBC7_AC
      0000C000  __RAM     |    0000C000  _shadow_O |    0000C0A0  s__DATA  
-     0000C0BC  s__BSS    |    0000C0BC  s__INITIA |    0000C65D  s__HEAP  
-     0000C65D  s__HEAP_E |    0000D000  __RAMBANK |    0000E000  .STACK   
+     0000C17F  s__BSS    |    0000C17F  s__INITIA |    0000CA12  s__HEAP  
+     0000CA12  s__HEAP_E |    0000D000  __RAMBANK |    0000E000  .STACK   
      0000FE00  __OAMRAM  |    0000FF00  _P1_REG   |    0000FF00  __IO     
      0000FF01  _SB_REG   |    0000FF02  _SC_REG   |    0000FF04  _DIV_REG 
      0000FF05  _TIMA_REG |    0000FF06  _TMA_REG  |    0000FF07  _TAC_REG 
@@ -74,11 +74,22 @@ Hexadecimal  [32-Bits]
 
 Area                       Addr        Size        Decimal Bytes (Attributes)
 --------------------       ----        ----        ------- ----- ------------
-_CODE                  00000200    0000020A =         522. bytes (REL,CON)
+_CODE                  00000200    00001085 =        4229. bytes (REL,CON)
 
         Value  Global            Value  Global            Value  Global    
         -----  ------            -----  ------            -----  ------    
-     00000200  _moverObj |    00000277  _setupJug |    000002AE  _main    
+     00000200  _moverObj |    00000277  _setupBal |    00000328  _setupJug
+     0000039A  _setupEne |    00000512  _setupMon |    00000581  _cargarOb
+     00000632  _matarObj |    0000064C  _colision |    00000670  _animarEn
+     000007ED  _actualiz |    00000B0E  _colision |    00000BE8  _actualiz
+     00000D30  _actualiz |    00000DD4  _actualiz |    00000E15  _animarPe
+     00000EE4  _main     |    0000119E  __divsuch |    000011A4  __modsuch
+     000011AD  __divusch |    000011B6  __modusch |    000011C2  __divscha
+     000011C7  __modscha |    000011CE  __divsint |    000011D7  __modsint
+     000011E3  __divucha |    000011E8  __moducha |    000011EF  __divuint
+     000011F8  __moduint |    00001204  .div8     |    00001204  .mod8    
+     0000120C  .div16    |    0000120C  .mod16    |    00001242  .divu8   
+     00001242  .modu8    |    00001245  .divu16   |    00001245  .modu16  
 ASxxxx Linker V03.00/V05.40 + sdld,  page 4.
 Hexadecimal  [32-Bits]
 
@@ -256,23 +267,23 @@ Hexadecimal  [32-Bits]
 
 Area                       Addr        Size        Decimal Bytes (Attributes)
 --------------------       ----        ----        ------- ----- ------------
-_HOME                  0000040A    00000157 =         343. bytes (REL,CON)
+_HOME                  00001285    0000016B =         363. bytes (REL,CON)
 
         Value  Global            Value  Global            Value  Global    
         -----  ------            -----  ------            -----  ------    
-     0000040A  .memset_s |    00000413  .memcpy_s |    00000430  .display_
-     00000430  _display_ |    00000448  _set_tile |    0000044D  _set_bkg_
-     0000044D  _set_win_ |    00000455  _set_spri |    00000485  .padup   
-     00000485  _waitpadu |    00000495  .jpad     |    00000495  _joypad  
-     000004BD  _waitpad  |    000004BE  .wait_pad |    000004C5  .delay   
-     000004C5  _delay    |    000004F1  _set_bkg_ |    00000505  .set_xy_w
-     0000050E  .set_xy_b |    0000051D  .set_xy_t
+     00001285  .memset_s |    0000128E  .memcpy_s |    000012AB  .display_
+     000012AB  _display_ |    000012C3  _set_win_ |    000012D7  _set_tile
+     000012DC  _set_bkg_ |    000012DC  _set_win_ |    000012E4  _set_spri
+     00001314  .padup    |    00001314  _waitpadu |    00001324  .jpad    
+     00001324  _joypad   |    0000134C  _waitpad  |    0000134D  .wait_pad
+     00001354  .delay    |    00001354  _delay    |    00001380  _set_bkg_
+     00001394  .set_xy_w |    0000139D  .set_xy_b |    000013AC  .set_xy_t
 ASxxxx Linker V03.00/V05.40 + sdld,  page 23.
 Hexadecimal  [32-Bits]
 
 Area                       Addr        Size        Decimal Bytes (Attributes)
 --------------------       ----        ----        ------- ----- ------------
-_INITIALIZER           00000561    000005A1 =        1441. bytes (REL,CON)
+_INITIALIZER           000013F0    00000893 =        2195. bytes (REL,CON)
 
         Value  Global            Value  Global            Value  Global    
         -----  ------            -----  ------            -----  ------    
@@ -281,17 +292,17 @@ Hexadecimal  [32-Bits]
 
 Area                       Addr        Size        Decimal Bytes (Attributes)
 --------------------       ----        ----        ------- ----- ------------
-_GSINIT                00000B02    0000000C =          12. bytes (REL,CON)
+_GSINIT                00001C83    0000000C =          12. bytes (REL,CON)
 
         Value  Global            Value  Global            Value  Global    
         -----  ------            -----  ------            -----  ------    
-     00000B02  gsinit   
+     00001C83  gsinit   
 ASxxxx Linker V03.00/V05.40 + sdld,  page 25.
 Hexadecimal  [32-Bits]
 
 Area                       Addr        Size        Decimal Bytes (Attributes)
 --------------------       ----        ----        ------- ----- ------------
-_GSFINAL               00000B0E    00000001 =           1. bytes (REL,CON)
+_GSFINAL               00001C8F    00000001 =           1. bytes (REL,CON)
 
         Value  Global            Value  Global            Value  Global    
         -----  ------            -----  ------            -----  ------    
@@ -300,25 +311,31 @@ Hexadecimal  [32-Bits]
 
 Area                       Addr        Size        Decimal Bytes (Attributes)
 --------------------       ----        ----        ------- ----- ------------
-_DATA                  0000C0A0    0000001C =          28. bytes (REL,CON)
+_DATA                  0000C0A0    000000DF =         223. bytes (REL,CON)
 
         Value  Global            Value  Global            Value  Global    
         -----  ------            -----  ------            -----  ------    
      0000C0A0  __cpu     |    0000C0A1  __is_GBA  |    0000C0A2  .mode    
      0000C0A3  .sys_time |    0000C0A3  _sys_time |    0000C0A5  .int_0x40
      0000C0B1  _oldplx   |    0000C0B2  _plx      |    0000C0B3  _ply     
-     0000C0B4  _pldir    |    0000C0B5  _jugador  |    0000C0BB  _scrollx 
+     0000C0B4  _pldir    |    0000C0B5  _camx     |    0000C0B6  _jugador 
+     0000C0C1  _enemigo  |    0000C0E2  _bala     |    0000C103  _moneda  
+     0000C171  _plvy     |    0000C172  _scrollx  |    0000C173  _A_presse
+     0000C174  _B_presse |    0000C175  _animFram |    0000C176  _enemFram
+     0000C177  _i        |    0000C179  _j        |    0000C17B  _en      
+     0000C17C  _b        |    0000C17D  _m        |    0000C17E  _mn      
 ASxxxx Linker V03.00/V05.40 + sdld,  page 27.
 Hexadecimal  [32-Bits]
 
 Area                       Addr        Size        Decimal Bytes (Attributes)
 --------------------       ----        ----        ------- ----- ------------
-_INITIALIZED           0000C0BC    000005A1 =        1441. bytes (REL,CON)
+_INITIALIZED           0000C17F    00000893 =        2195. bytes (REL,CON)
 
         Value  Global            Value  Global            Value  Global    
         -----  ------            -----  ------            -----  ------    
-     0000C0BC  _TileLabe |    0000C0CC  _TileLabe |    0000C1AC  _MapaLabe
-     0000C45C  _Nivel1La |    0000C65C  __map_til
+     0000C17F  _TileLabe |    0000C18F  _TileLabe |    0000C28F  _MapaLabe
+     0000C5FF  _Nivel1La |    0000C7FF  _Nivel1ob |    0000C9FF  _Mensaje 
+     0000CA07  _Numeros  |    0000CA11  __map_til
 ASxxxx Linker V03.00/V05.40 + sdld,  page 28.
 Hexadecimal  [32-Bits]
 
@@ -334,19 +351,21 @@ _HRAM                  0000FF80    00000013 =          19. bytes (REL,CON)
 
 Files Linked                              [ module(s) ]
 
-C:\gbdk-win32\gbdk\lib/gb/crt0.o          [ Runtime ]
-C:\Users\david\AppData\Local\Temp/lcc92080.o
+C:\gbdk-win64\gbdk\lib/gb/crt0.o          [ Runtime ]
+C:\Users\LENOVO\AppData\Local\Temp/lcc208320.o
                                           [ ejemplo ]
 
 
 Libraries Linked                          [ object file ]
 
-C:\gbdk-win32\gbdk\lib/gb/gb.lib          [ sfr.o ]
-C:\gbdk-win32\gbdk\lib/gb/gb.lib          [ set_data.o ]
-C:\gbdk-win32\gbdk\lib/gb/gb.lib          [ pad.o ]
-C:\gbdk-win32\gbdk\lib/gb/gb.lib          [ delay.o ]
-C:\gbdk-win32\gbdk\lib/gb/gb.lib          [ set_bk_t.o ]
-C:\gbdk-win32\gbdk\lib/gb/gb.lib          [ set_xy_t.o ]
+C:\gbdk-win64\gbdk\lib/gb/gb.lib          [ sfr.o ]
+C:\gbdk-win64\gbdk\lib/sm83/sm83.lib      [ div.o ]
+C:\gbdk-win64\gbdk\lib/gb/gb.lib          [ set_wi_t.o ]
+C:\gbdk-win64\gbdk\lib/gb/gb.lib          [ set_data.o ]
+C:\gbdk-win64\gbdk\lib/gb/gb.lib          [ pad.o ]
+C:\gbdk-win64\gbdk\lib/gb/gb.lib          [ delay.o ]
+C:\gbdk-win64\gbdk\lib/gb/gb.lib          [ set_bk_t.o ]
+C:\gbdk-win64\gbdk\lib/gb/gb.lib          [ set_xy_t.o ]
 
 ASxxxx Linker V03.00/V05.40 + sdld,  page 30.
 
