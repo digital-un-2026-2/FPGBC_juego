@@ -1,0 +1,441 @@
+FPGBC_JUEGO — DOCUMENTO DE INVESTIGACIÓN Y ESTADO DEL DESARROLLO
+Versión: 0.1
+Fecha de actualización: 13 de octubre de 2026
+Repositorio del grupo: https://github.com/digital-un-2026-2/FPGBC_juego
+Repositorio general: https://github.com/digital-un-2026-2
+
+======================================================================
+1. PROPÓSITO DEL DOCUMENTO
+======================================================================
+
+Este documento consolida la investigación y las decisiones de diseño que se han
+discutido para el módulo FPGBC_juego. Su propósito es dejar trazabilidad del
+estado actual, identificar qué existe en el repositorio, describir lo que el
+juego necesitará para desarrollarse e integrarse con el hardware y definir los
+siguientes pasos.
+
+Se distinguen cuatro estados:
+[CONFIRMADO] Información respaldada por archivos, fotografías o decisiones
+explícitas del equipo.
+[IMPLEMENTADO EN EL REPOSITORIO] Elementos que aparecen en los archivos actuales.
+[PROPUESTA] Diseño sugerido, todavía sujeto a aprobación e integración.
+[PENDIENTE DE VERIFICACIÓN] Punto que requiere mapeo de pines, prueba física,
+documentación técnica o confirmación del equipo.
+
+No debe interpretarse una propuesta como una función ya implementada o probada.
+
+======================================================================
+2. CONTEXTO DEL PROYECTO
+======================================================================
+
+[CONFIRMADO] El proyecto académico busca construir y poner en funcionamiento una
+consola basada en una FPGA Gowin, con controles, pantalla, audio, memoria y
+cartucho. El trabajo se divide entre varios grupos/módulos dentro del
+repositorio general.
+
+[CONFIRMADO] La responsabilidad de este subgrupo es el desarrollo del juego y
+los archivos relacionados con sus niveles, recursos y lógica de software.
+Otros integrantes trabajan en aspectos de hardware y periféricos.
+
+[CONFIRMADO] La FPGA de la placa principal se ha identificado visualmente como
+Gowin GW2AR-18 en encapsulado EQ144. La identificación exacta del componente y
+sus señales debe contrastarse con la referencia del dispositivo y el mapeo de
+la placa.
+
+[CONFIRMADO] Existen dos placas físicas separadas:
+- Placa principal: contiene la FPGA, controles y circuitos/periféricos de la
+  consola.
+- Cartucho: placa independiente que se inserta en el conector de la consola.
+  En las fotografías del cartucho se identifican referencias asociadas a Flash
+  y FRAM.
+
+No deben tratarse como una única PCB. La comunicación eléctrica entre ambas se
+debe determinar siguiendo el conector y sus señales en el mapeo del hardware.
+
+======================================================================
+3. CONTENIDO ACTUAL DEL REPOSITORIO
+======================================================================
+
+En el ZIP del repositorio revisado aparecen, entre otros, los siguientes
+archivos:
+
+- ejemplo.c
+- compile.bat
+- ejemplo.gb
+- ejemplo.map
+- ejemplo.noi
+- Tile1.c / Tile1.h / Tile1.gbr
+- Tile2.c / Tile2.h / Tile2.gbr
+- Mapa.c / Mapa.h / Mapa.gbr
+- Nivel1.c / Nivel1.h / Nivel1.gbm
+- README.md
+- carpeta o recurso "Prueba modelo juego"
+
+La presencia de los archivos compilados (.gb, .map, .noi) indica que se ha
+generado una ROM de Game Boy con la herramienta actual. No demuestra por sí
+sola que la ROM ya se ejecute en la FPGA del proyecto académico ni que el
+cartucho esté integrado con el procesador que se está desarrollando.
+
+El README.md revisado contiene solamente el título "FPGBC_juego"; por tanto,
+conviene ampliar posteriormente la documentación del repositorio.
+
+======================================================================
+4. HERRAMIENTA DE COMPILACIÓN ACTUAL
+======================================================================
+
+[IMPLEMENTADO EN EL REPOSITORIO] El archivo compile.bat ejecuta:
+
+C:\gbdk-win32\gbdk\bin\lcc.exe -Wa-l -Wl-m -Wl-j -o ejemplo.gb ejemplo.c
+
+Esto utiliza el compilador incluido con GBDK para producir ejemplo.gb, una ROM
+destinada al entorno Game Boy/Game Boy Color. Los archivos de mapa y símbolos
+se generan como parte de las opciones actuales del enlazador.
+
+La cadena que se puede documentar con la evidencia disponible es:
+
+Código C
+   |
+   v
+GBDK / lcc (toolchain de Game Boy)
+   |
+   v
+ROM ejemplo.gb + archivos de mapa/símbolos
+   |
+   v
+Prueba en emulador o hardware compatible (por comprobar en el proyecto)
+
+IMPORTANTE: todavía no se ha confirmado que esta ROM sea ejecutable por el
+procesador académico descrito en las discusiones del proyecto. Una ROM de
+Game Boy requiere un sistema compatible con la arquitectura y los periféricos
+de Game Boy. Antes de elegir una cadena de compilación definitiva, el equipo
+debe confirmar si la FPGA ejecutará un núcleo compatible con Game Boy o si se
+usará un procesador propio. La arquitectura final determina el compilador y el
+formato del programa.
+
+También se debe normalizar el nombre incluido en ejemplo.c: el archivo incluye
+"nivel1.c", mientras que en el repositorio el nombre visible es "Nivel1.c".
+Windows suele tolerar diferencias de mayúsculas/minúsculas en nombres de
+archivo, pero otros sistemas pueden no hacerlo. Se recomienda uniformar el
+nombre y no incluir directamente archivos .c a largo plazo; es preferible
+compilar los módulos por separado o incluir sus cabeceras, de acuerdo con la
+configuración del proyecto.
+
+======================================================================
+5. ESTADO DEL CÓDIGO DEL JUEGO
+======================================================================
+
+[IMPLEMENTADO EN EL REPOSITORIO] ejemplo.c contiene una estructura inicial para
+un personaje, inicialización de sprites, lectura de botones y movimiento.
+El jugador se representa con cuatro sprites de 8x8 para formar una figura de
+16x16 píxeles. La función moverObjeto() coloca los cuatro componentes del
+personaje en pantalla.
+
+El programa:
+- Inicializa la posición del jugador.
+- Carga datos gráficos desde TileLabel2.
+- Carga datos de tiles del escenario desde MapaLabel.
+- Carga el mapa Nivel1Label con dimensiones declaradas de 32 x 16 tiles.
+- Activa sprites y fondo.
+- Lee joypad() y modifica la posición del personaje.
+- Aplica una lógica inicial de desplazamiento horizontal del fondo.
+- Incluye un bucle principal con una demora breve.
+
+[IMPLEMENTADO EN EL REPOSITORIO] Los archivos Mapa.c, Tile1.c y Tile2.c
+contienen recursos gráficos en arreglos de bytes. Nivel1.c contiene datos del
+mapa y Nivel1.h declara dimensiones y el arreglo externo.
+
+[PENDIENTE DE VERIFICACIÓN] No se ha documentado todavía una prueba completa
+del juego en la placa FPGA de la materia. Tampoco se ha confirmado que las
+funciones gráficas y joypad() vayan a estar disponibles de la misma manera en
+la implementación final del hardware.
+
+======================================================================
+6. RECURSOS GRÁFICOS Y ESTRUCTURA DE NIVELES
+======================================================================
+
+El sistema actual separa algunos recursos:
+- Tiles/sprites: patrones gráficos de 8 x 8 píxeles representados en bytes.
+- Mapa: conjunto de tiles gráficos disponibles.
+- Nivel: arreglo de índices que selecciona qué tile va en cada posición.
+- Programa principal: carga recursos, actualiza el personaje y ejecuta el bucle
+  del juego.
+
+Nivel1 declara un mapa de 32 x 16 tiles, equivalente a 512 posiciones de mapa.
+La forma exacta en que el escenario se ve depende de los patrones almacenados
+en los archivos de tiles y del índice usado en cada celda.
+
+Al crear niveles adicionales se deben respetar:
+- El ancho y alto declarados.
+- La cantidad de elementos del arreglo: ancho × alto.
+- Los índices de tile válidos para el tileset cargado.
+- El orden de los bytes esperado por GBDK y las herramientas gráficas.
+- La convención de nombres y las cabeceras existentes.
+
+No debe asignarse un significado visual a un índice de tile sin comprobar antes
+qué patrón gráfico representa.
+
+======================================================================
+7. ARQUITECTURA DE HARDWARE RELEVANTE PARA EL JUEGO
+======================================================================
+
+[CONFIRMADO] La placa principal incluye la FPGA y los controles, además de
+conexiones para pantalla y otros periféricos. El cartucho es una placa física
+separada.
+
+[CONFIRMADO] La referencia de la FPGA se ha identificado como Gowin GW2AR-18,
+encapsulado EQ144, según la documentación e imágenes estudiadas.
+
+[CONFIRMADO A NIVEL VISUAL] En el cartucho se observan circuitos integrados y
+marcaciones asociadas a Flash y FRAM. En las conversaciones se revisaron
+documentos de memoria S29GL-N y FM28V100, pero la conexión exacta de cada señal
+a la FPGA debe verificarse mediante el mapeo del hardware.
+
+[PENDIENTE DE VERIFICACIÓN] El mapeo eléctrico de la placa se está realizando
+manualmente, pin por pin. Por ello no se debe inventar:
+- qué pin EQ144 corresponde a cada señal del cartucho;
+- el ancho del bus de datos o direcciones;
+- qué señales de control están conectadas;
+- cómo se seleccionan Flash o FRAM;
+- cómo arranca el procesador o dónde se carga el juego;
+- qué interfaz de software controla pantalla, controles o audio.
+
+La documentación del componente explica las capacidades y asignaciones de
+pines del dispositivo, pero no sustituye al esquema o mapeo de la placa real.
+
+======================================================================
+8. CARTUCHO, FLASH Y FRAM
+======================================================================
+
+El cartucho se ha identificado como un FunnyPlaying EverSave MBC5 para
+Game Boy/Game Boy Color, con referencias comerciales a Flash y FRAM. La
+información del fabricante consultada previamente describe un cartucho de
+desarrollo que requiere un programador compatible para reescribir la memoria.
+
+Esto plantea dos cuestiones diferentes que no deben confundirse:
+
+A. Programar el cartucho:
+   escribir una ROM Game Boy en la memoria Flash del cartucho con un
+   programador compatible.
+
+B. Ejecutar el juego en el sistema académico:
+   confirmar que la placa principal y su lógica FPGA pueden acceder al cartucho
+   y ejecutar el formato de programa que se grabe en él.
+
+Que se pueda grabar una ROM en el cartucho no garantiza por sí solo que el
+sistema FPGA del proyecto pueda ejecutarla. Se debe confirmar compatibilidad
+del bus, lógica de selección del cartucho, formato de ROM y núcleo/procesador.
+
+[ PENDIENTE DE VERIFICACIÓN ]
+- Conector y pinout entre placa principal y cartucho.
+- Señales de datos, direcciones, lectura/escritura y selección.
+- Relación entre Flash, FRAM y el procesador.
+- Procedimiento de grabación disponible para el equipo.
+- Prueba de lectura de una ROM y de ejecución.
+
+======================================================================
+9. COMUNICACIÓN ENTRE DOS CONSOLAS: ENLACE POR CABLE
+======================================================================
+
+[DECISIÓN ACTUAL DE DISEÑO] Las consolas no se conectarán a la red universitaria.
+El diseño multijugador debe considerar un cable físico directo entre las dos
+consolas.
+
+Arquitectura conceptual:
+
+Consola A / juego
+       |
+       v
+Interfaz de comunicación de la placa A
+       |
+       v
+Cable físico
+       |
+       v
+Interfaz de comunicación de la placa B
+       |
+       v
+Consola B / juego
+
+Esta arquitectura es una propuesta funcional, no una implementación confirmada.
+Todavía deben determinarse el conector, las señales, el nivel eléctrico, el
+protocolo, la velocidad y el software de bajo nivel.
+
+Una posible alternativa técnica es un enlace serial punto a punto. UART podría
+ser apropiado si el hardware proporciona una UART o si se implementa una
+interfaz equivalente. Sin embargo, no debe afirmarse que la UART está disponible
+o conectada hasta que el mapeo de pines y el diseño de hardware lo confirmen.
+
+Antes de desarrollar el multijugador se deben resolver:
+1. Qué interfaz eléctrica usarán ambas consolas.
+2. Qué pines/conector llevarán TX, RX, reloj, tierra y, si se requiere, control.
+3. Si la comunicación es unidireccional, bidireccional o semidúplex.
+4. Qué niveles de tensión admite cada extremo y si se necesita adaptación.
+5. Cómo se detecta el inicio de una partida y se sincronizan los jugadores.
+6. Qué información mínima se transmite: entradas del jugador, estado de la
+   partida, puntuación, eventos o mensajes de control.
+7. Cómo se detectan errores, pérdidas de datos, desconexión y reinicio.
+
+Propuesta de contenido lógico de un mensaje, pendiente de definición:
+- byte de inicio o identificador;
+- tipo de mensaje;
+- contador/secuencia;
+- datos del jugador;
+- checksum o mecanismo simple de validación.
+
+No se deben fijar todavía valores definitivos de bytes, velocidad o formato hasta
+conocer la interfaz real y probarla.
+
+Para una primera versión multijugador conviene transmitir información pequeña,
+como entradas y eventos de juego, en vez de imágenes completas. Cada consola
+debería renderizar su propia pantalla localmente. La estrategia exacta de
+sincronización depende del juego que se elija.
+
+======================================================================
+10. QUÉ NECESITA EL JUEGO PARA DESARROLLARSE
+======================================================================
+
+Antes de implementar mecánicas complejas, se necesita identificar y probar:
+
+A. Entorno de ejecución
+- Arquitectura de CPU o núcleo que ejecutará el programa.
+- ISA y formato de ejecutable/ROM.
+- Compilador y opciones de enlace.
+- Memoria disponible y mapa de memoria.
+- Método de carga desde el cartucho.
+
+B. API o acceso a periféricos
+- Inicialización de pantalla.
+- Carga de tiles, fondos y sprites.
+- Actualización de pantalla.
+- Lectura de botones.
+- Temporización del juego.
+- Reproducción de audio.
+- Comunicación por cable entre consolas.
+
+C. Estructura del software
+- Bucle principal.
+- Estado del juego: menú, partida, pausa, victoria/derrota.
+- Control del jugador.
+- Movimiento y límites.
+- Colisiones.
+- Enemigos/objetos, si aplica.
+- Transición entre niveles.
+- Puntuación y condiciones de finalización.
+- Gestión de recursos gráficos y memoria.
+
+D. Pruebas
+- Programa mínimo de arranque.
+- Prueba de pantalla.
+- Prueba de botones.
+- Prueba de sprites y mapa.
+- Prueba de carga de ROM/cartucho.
+- Prueba de enlace por cable con mensajes simples.
+- Prueba multijugador con el juego elegido.
+
+======================================================================
+11. PLAN DE TRABAJO PROPUESTO
+======================================================================
+
+FASE 1 — Documentar el estado actual
+- Mantener el código de ejemplo y los recursos actuales.
+- Registrar la versión de GBDK y la forma de compilar.
+- Corregir/documentar la convención de nombres de archivos.
+- Añadir documentación del juego y de los recursos.
+
+FASE 2 — Confirmar la plataforma de ejecución
+- Confirmar si el sistema ejecutará un núcleo compatible con Game Boy o un
+  procesador propio.
+- Identificar el formato correcto de programa.
+- Definir cómo se graba y lee el cartucho.
+
+FASE 3 — Crear pruebas pequeñas
+- Programa de pantalla básica.
+- Programa de lectura de controles.
+- Prueba de sprite y mapa.
+- Confirmar ejecución real en el hardware objetivo.
+
+FASE 4 — Organizar los niveles
+- Mantener el formato de Nivel1.c/.h.
+- Crear nuevos niveles reutilizando el tileset cuando sea apropiado.
+- Validar tamaño e índices de cada mapa.
+- Integrar la selección/cambio de nivel en el juego.
+
+FASE 5 — Definir el juego
+- Seleccionar mecánicas alcanzables para el hardware.
+- Definir reglas, objetivos, colisiones, puntuación y fin de partida.
+- Implementar y probar cada sistema por separado.
+
+FASE 6 — Enlace por cable
+- Confirmar la interfaz eléctrica.
+- Definir protocolo y mensajes.
+- Probar comunicación bidireccional sin juego.
+- Integrar el intercambio de entradas/estado.
+- Probar sincronización y desconexión.
+
+FASE 7 — Integración y evidencia
+- Registrar resultados de compilación y pruebas.
+- Guardar capturas, fotografías y versiones.
+- Documentar errores y soluciones.
+- Marcar cada función como propuesta, implementada o verificada.
+
+======================================================================
+12. ESTADO RESUMIDO
+======================================================================
+
+[IMPLEMENTADO EN LOS ARCHIVOS ACTUALES]
+- Prototipo C para Game Boy usando GBDK.
+- Movimiento básico del personaje.
+- Lectura de controles mediante joypad().
+- Recursos de tiles, sprites y mapa.
+- Nivel 1 representado como arreglo de 32 x 16 tiles.
+- Script de compilación compile.bat.
+- Archivo ROM generado ejemplo.gb.
+
+[DECISIÓN DE DISEÑO]
+- El multijugador será por cable directo entre consolas, no por red universitaria.
+
+[EN INVESTIGACIÓN]
+- Arquitectura final de ejecución.
+- Integración entre FPGA, procesador y cartucho.
+- Mapeo de pines del conector del cartucho.
+- Acceso real a Flash/FRAM.
+- Interfaz de pantalla y controles desde el software.
+- Interfaz física y protocolo de comunicación por cable.
+
+[PENDIENTE]
+- Probar la ROM en el hardware objetivo.
+- Confirmar compilador/formato definitivo.
+- Crear prueba mínima de acceso a periféricos.
+- Definir e implementar el protocolo por cable.
+- Integrar niveles adicionales en el programa principal.
+- Definir el juego final y su lógica completa.
+- Documentar resultados de pruebas reales.
+
+======================================================================
+13. REFERENCIAS DE TRABAJO
+======================================================================
+
+Repositorio del grupo:
+https://github.com/digital-un-2026-2/FPGBC_juego
+
+Repositorio general:
+https://github.com/digital-un-2026-2
+
+GBDK (documentación oficial):
+https://gbdk.org/docs/api/docs_toolchain.html
+
+Documentación Gowin GW2AR-18 Pinout:
+Documento del fabricante revisado en el proyecto: UG115E / GW2AR series of
+FPGA Products, GW2AR-18 Pinout. Debe usarse para contrastar pines, sin asumir
+que el pinout genérico determina las conexiones de la placa completa.
+
+Datasheets revisados durante la investigación:
+- S29GL-N Flash family.
+- FM28V100 FRAM.
+- SN74LVC4245A, traductor de nivel lógico.
+Estos documentos describen componentes, pero no reemplazan el mapeo eléctrico
+de la placa real.
+
+======================================================================
+FIN DEL DOCUMENTO
+======================================================================
