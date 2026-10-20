@@ -1,0 +1,32 @@
+# =========================================================================
+# .gitignore - Proyecto Game Boy / Game Boy Color (FPGBC)
+# =========================================================================
+
+# Salidas de compilacion y temporales
+build/
+*.o
+*.obj
+*.lst
+*.asm
+*.sym
+*.map
+*.noi
+*.ihx
+*.cdb
+*.adb
+
+# Archivos binarios de ROM generados localmente
+*.gb
+*.gbc
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Temporales de sistema
+.DS_Store
+Thumbs.db
+Desktop.ini
