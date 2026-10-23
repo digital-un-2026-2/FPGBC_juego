@@ -1,120 +1,122 @@
-# Videojuego de Plataformas para Game Boy (Proyecto FPGBC)
+# Quemador del cartucho FPGBC
 
-Videojuego de plataformas en 2D desarrollado en **C** con la suite de desarrollo **GBDK-2020**, diseñado para su ejecución en hardware de Game Boy / Game Boy Color y consolas de hardware abierto implementadas sobre **FPGA** (proyecto universitario FPGBC).
+Diseño para leer y quemar juegos en el cartucho **EverSave MBC5** usando la FPGA **GW2AR-18** de la consola FPGBC.
 
----
+La FPGA carga un puente (`cart_bridge`) que recibe comandos del PC por UART y genera ciclos de bus de Game Boy en el conector del cartucho. El algoritmo de la flash S29GL064N (desbloqueo, borrado, programación y verificación) lo dirige el script de Python. La única excepción es la programación de cada byte, que el puente hace en hardware para ir más rápido.
 
-## 1. Características Técnicas Implementadas y Verificadas
-
-- **Selector de Nivel Interactivo:** Menú principal con interfaz completa en español (`ELIGE TU NIVEL`), selector visual con gema y soporte para 3 niveles distintos.
-- **Arquitectura de 3 Niveles Extensibles (96×16 tiles / 768×128 px):**
-  - *Nivel 1 (Pradera e Islas):* Plataformas escalonadas, saltos de aprendizaje, abismos y patrullas enemigas.
-  - *Nivel 2 (Fortaleza y Torres):* Estructuras escalonadas con desniveles suaves de máximo 1 tile (8 px) franqueables mediante salto.
-  - *Nivel 3 (Desafío de Abismos y Precisión):* Plataformas intermedias sobre el vacío que requieren saltos precisos.
-- **Motor Físico:** Gravedad progresiva con aritmética de punto fijo subpíxel (`GRAVITY_SUBPX = 36`), impulso de salto parabólico (`JUMP_IMPULSE = -730`), detección y resolución de colisiones AABB contra el mapa de fondo.
-- **Inteligencia y Físicas Enemigas:**
-  - Los enemigos experimentan **gravedad real** y aterrizan en plataformas sólidas (no flotan en el vacío).
-  - **Colisión frontal con bloques:** Comprobación de solidez previa al desplazamiento; los enemigos rebotan al encontrar muros o escalones sin traspasarlos.
-  - Patrullaje horizontal delimitado de 2 pasos por lado.
-- **Mecánica de Combate:** Disparo de orbe de energía (botón A) capaz de destruir enemigos en pantalla.
-- **Coleccionables y HUD:** Gemas coleccionables registradas mediante máscara de bits en WRAM (192 bytes, impidiendo que reaparezcan al desplazar la cámara) y contador gráfico superior `[Gema] x [00]`.
-- **Motor de Audio Chiptune Nativo:**
-  - Canal 1 (Pulso con barrido): Efecto de salto y tono descendente de muerte.
-  - Canal 2 (Pulso agudo): Campanilla de recogida de monedas.
-  - Canal 4 (Ruido blanco): Explosión de impacto y derrota de enemigos.
-  - Fanfarria triunfal de victoria al cruzar la meta.
-- **Control de Estados y Flujo:** Pantallas de `FIN DEL JUEGO` y `VICTORIA`, reinicio de nivel con `START` y retorno al menú principal con botón `B`.
-
----
-
-## 2. Estructura del Proyecto
-
-```text
-FPGBC_GITHUB_FINAL/
-├── README.md                           # Documentación general del proyecto
-├── INFORME_REVISION_TECNICA.md         # Auditoría técnica e inventario de entrega
-├── compile.bat                         # Acceso directo para compilar el juego
-├── .gitignore                          # Configuración de exclusiones para Git
-├── codigo/                             # Código fuente C y cabeceras aprobadas
-│   ├── juego_completo.c                # Núcleo y bucle principal del videojuego
-│   ├── Mapa.c / Mapa.h                 # Definición de tilesets del escenario y tipografía
-│   ├── Tile1.c / Tile1.h               # Sprites del personaje principal
-│   ├── Tile2.c / Tile2.h               # Sprites de enemigos, proyectiles y marcadores
-│   └── niveles/
-│       ├── NivelesData.c               # Arreglos de datos de los 3 niveles (96x16 tiles)
-│       └── NivelesData.h               # Cabeceras y constantes de niveles
-├── recursos/                           # Recursos gráficos originales y vistas previas
-│   ├── Mapa.gbr, Tile1.gbr, Tile2.gbr  # Proyectos originales de Game Boy Tile Designer
-│   └── preview/                        # Vistas panorámicas completas (PNG)
-│       ├── nivel_1.png
-│       ├── nivel_2.png
-│       └── nivel_3.png
-├── herramientas/                       # Scripts de soporte y generación
-│   ├── compile.bat                     # Script de compilación parametrizado con GBDK
-│   └── make_todos_niveles.py           # Generador matricial de los 3 niveles
-└── pruebas/                            # Batería de pruebas automatizadas y evidencias
-    ├── test_completo.py                # Suite de 13 pruebas automatizadas con PyBoy
-    └── capturas/                       # 13 capturas de pantalla de los estados verificados
+```
+PC (fpgbc_cart.py) --UART--> FPGA consola (cart_bridge) --conector 32 pines--> MBC5 + flash S29GL064N
 ```
 
----
+Guía de diseño completa: <https://claude.ai/artifact/5pCVntXqpNy74bZwQhL8Vv>
 
-## 3. Requisitos del Entorno
+## Contenido
 
-1. **Compilador C:** GBDK-2020 versión 4.5.0 (o superior).
-   - Variable de entorno `GBDK` o `GBDK_HOME` apuntando al directorio base de GBDK (por defecto `C:\Users\ASUS\tools\gbdk-2020-4.5.0\gbdk`).
-2. **Entorno de Pruebas Automatizadas (opcional):** Python 3.10+ con `PyBoy` y `Pillow`.
-3. **Emulador de Referencia:** BGB (v1.5.8 o superior) o emulador compatible con Game Boy DMG.
+| Ruta | Qué es |
+| --- | --- |
+| `rtl/uart.v` | UART 8N1 (RX y TX) |
+| `rtl/cart_bus.v` | Generador de ciclos de lectura/escritura en el conector |
+| `rtl/cart_bridge.v` | Top: FIFO de recepción + intérprete de comandos `V`, `R`, `W`, `P` |
+| `constraints/fpgbc_cart.cst` | Pines de la GW2AR-LV18EQ144 (algunos son supuestos, ver abajo) |
+| `sim/cart_model.v` | Modelo de MBC5 + flash para simulación |
+| `sim/tb_cart_bridge.v` | Banco de pruebas (enlace, lectura, ID, borrado, programación, ráfaga) |
+| `pc/fpgbc_cart.py` | Herramienta del PC: `info`, `header`, `dump`, `erase`, `burn`, `verify` |
+| `pc/prueba_sin_hardware.py` | Ejecuta `fpgbc_cart.py` contra un puente falso, sin consola |
 
----
+## Pines supuestos (CONFIRMAR antes de cargar)
 
-## 4. Instrucciones de Compilación
+| Señal | Pin FPGA | Estado |
+| --- | --- | --- |
+| `data_dir`: DIR del SN74LVC8T245 (chip LJ24SA, pin 2) | 46 (IOB14A) | **Supuesto**: 46, 47 y 49 son los pines libres junto al bus de datos |
+| `cart_rst_n`: /RESET, pin 30 del conector | 49 (IOB17B) | **Supuesto**: el EverSave no lo usa (NC), así que no es crítico |
+| `DIR_WRITE`: nivel de DIR para escribir hacia el cartucho | `1` | **Supuesto**: correcto si el lado A del 8T245 es la FPGA |
+| A14 / A15 | 83 (IOR42B) / 84 (IOR42A) | El CSV del repositorio repite IOR42A; la base de datos de pines de la herramienta (apicula) da IOR42B para el 83 |
 
-Para compilar la ROM desde la raíz del proyecto, ejecute en una consola de comandos (o PowerShell):
+Cómo confirmarlos, con la consola **apagada** y el multímetro en continuidad:
 
-```cmd
-compile.bat
+1. Pin 2 (DIR) del chip LJ24SA → pines 46, 47 y 49 de la FPGA.
+2. Pin 22 (/OE) del mismo chip → GND o algún pin de la FPGA. Si va a un pin, hay que agregarlo al diseño y ponerlo en 0.
+3. Pines 3–10 (lado A) del chip: ¿van a la FPGA o al conector? Si van al conector, cambien `DIR_WRITE` a `1'b0` en `rtl/cart_bridge.v`.
+4. Pin 30 del conector → 49 (o el que sea).
+
+Si DIR resulta ser otro pin, solo cambien la línea `IO_LOC "data_dir" 46;` del `.cst`.
+
+## Instalación del entorno
+
+Las herramientas son las mismas de [FPGBC_digital_UN](https://github.com/digital-un-2026-2/FPGBC_digital_UN) (Yosys, nextpnr-gowin, apicula, openFPGALoader, iverilog), instaladas con **pixi**. El `pixi.toml` de ese repositorio solo soporta **Linux x86-64**.
+
+### Si usan Windows: WSL2
+
+1. En PowerShell como administrador: `wsl --install -d Ubuntu`, y reiniciar.
+2. Abrir "Ubuntu" y seguir los pasos de Linux de abajo.
+3. Para que WSL vea el cable USB de la FPGA: instalar [usbipd-win](https://github.com/dorssel/usbipd-win). Luego, en PowerShell como administrador: `usbipd list`, `usbipd bind --busid <id>` y `usbipd attach --wsl --busid <id>`.
+4. El script de Python (`pc/fpgbc_cart.py`) también funciona directamente en Windows, con el puerto `COM3` (o el que aparezca en el Administrador de dispositivos).
+
+### Linux (o dentro de WSL)
+
+```bash
+# 1. Instalar pixi
+curl -fsSL https://pixi.sh/install.sh | sh
+exec $SHELL            # recargar el PATH
+
+# 2. Clonar los dos repositorios, uno al lado del otro
+git clone https://github.com/digital-un-2026-2/FPGBC_digital_UN.git
+git clone https://github.com/digital-un-2026-2/FPGBC_juego.git
+
+# 3. Instalar el entorno (tarda varios minutos la primera vez)
+cd FPGBC_digital_UN
+pixi install
+pixi run setup-env     # descarga el toolchain RISC-V y pide sudo para las reglas USB del FT232
+pixi run make -C test/env/min_soc detect   # opcional: ver si se detecta la FPGA
+
+# 4. Herramientas extra para este diseño
+pixi shell             # entra al entorno; de aquí en adelante todo se ejecuta dentro
+pip install pyserial
 ```
 
-El script invocará automáticamente `lcc.exe` con las directivas de ensamblador y enlazador optimizadas:
-```cmd
-lcc -Wa-l -Wl-m -Wl-j -o build\juego_completo.gb codigo\juego_completo.c
+Comprobar que todo quedó instalado:
+
+```bash
+cd ../FPGBC_juego/quemador
+make sim               # debe terminar con "RESULTADO: todas las pruebas pasaron"
+make build             # genera build/cart_bridge.fs
+python pc/prueba_sin_hardware.py ../ejemplo.gb   # prueba el script sin consola
 ```
-La ROM resultante se ubicará en `build\juego_completo.gb` (32.768 bytes, ROM MBC1/None estándar de 32 KB).
 
----
+## Uso con la consola
 
-## 5. Controles del Videojuego
+Conexiones:
 
-| Acción | Control Game Boy | Tecla en BGB (Mapeo Estándar) |
-| :--- | :--- | :--- |
-| **Menú: Cambiar selección de nivel** | D-Pad Arriba / Abajo | Flechas Arriba / Abajo |
-| **Menú: Iniciar nivel seleccionado** | Botón A / START | Tecla `S` / `Z` / `Enter` |
-| **Juego: Mover personaje** | D-Pad Izquierda / Derecha | Flechas Izquierda / Derecha |
-| **Juego: Saltar** | Botón B / D-Pad Arriba | Tecla `A` / `X` / Flecha Arriba |
-| **Juego: Disparar proyectil** | Botón A | Tecla `S` / `Z` |
-| **Fin de Partida: Reintentar nivel** | START | Tecla `Enter` |
-| **Fin de Partida: Volver al menú** | Botón B / SELECT | Tecla `A` / `X` / Barra Espaciadora |
+- **JTAG** (para cargar el bitstream): el FT232RL del curso, como en `min_soc` (`--pins TXD:CTS:DTR:RXD`).
+- **UART** (para los comandos): adaptador USB-serial de **3.3 V** al puerto link. El TX del adaptador va al pin 27 de la FPGA (Serial In), el RX del adaptador al pin 28 (Serial Out), y GND común. 115200 baudios.
 
----
-
-## 6. Verificación de Calidad
-
-El proyecto cuenta con una suite de pruebas automatizadas reproducibles (`pruebas/test_completo.py`) que ejecuta el binario sobre el emulador `PyBoy` sin intervención manual, validando:
-- Arranque del menú y navegación del cursor.
-- Carga de los 3 niveles y streaming circular de VRAM (>256 px).
-- Gravedad, salto y colisión con plataformas.
-- Patrullaje de enemigos y rebote sin atravesar bloques.
-- Sistema de disparo, impacto de proyectil y recolección de monedas.
-- Condiciones de derrota y victoria.
-
-Para ejecutar las pruebas:
-```cmd
-python pruebas/test_completo.py
+```bash
+make load                                          # carga el puente en la SRAM de la FPGA (se pierde al apagar)
+python pc/fpgbc_cart.py --port /dev/ttyUSB1 info   # debe decir "Puente: FPGBC1"
+python pc/fpgbc_cart.py --port /dev/ttyUSB1 header # PRIMER HITO: leer la cabecera del juego que tenga el cartucho
 ```
-Resultado verificado: **13/13 pruebas aprobadas (100% PASS)**.
 
----
+Orden de pruebas recomendado, de menor a mayor riesgo:
 
-## 7. Limitaciones y Validación en Hardware
-El videojuego ha sido probado y verificado al 100% mediante emulación de precisión de ciclo (BGB) y pruebas automatizadas (PyBoy). La validación física en la placa FPGA de la consola FPGBC queda reservada para las pruebas presenciales de laboratorio del equipo.
+1. `header`: solo lee. Si el logo sale "correcto", el bus de lectura funciona.
+2. `dump copia.gb --size 32768`: guarda una copia de lo que tenga el cartucho **antes** de borrar nada.
+3. `info`: entra al modo ID de la flash. Debe responder fabricante `0x01` y dispositivo `0x7e`. Si en vez de eso se ve contenido normal de la ROM, las escrituras no están llegando: revisen DIR y `DIR_WRITE`.
+4. `burn ../build/juego_completo.gb`: borra los sectores necesarios, programa y verifica.
+5. Volver a cargar el núcleo de juego de la consola y probar el cartucho.
+
+## Protocolo serial
+
+| Comando | Bytes que envía el PC | Respuesta |
+| --- | --- | --- |
+| `V` | `V` | `FPGBC1` |
+| `R` | `R` aH aL nH nL | n bytes leídos desde la dirección a (n = 0 → 65536) |
+| `W` | `W` aH aL d | `K` |
+| `P` | `P` aH aL d | `K` si se programó, `X` si falló (el PC envía luego `F0` para resetear la flash) |
+
+El banco del MBC5 lo elige el PC con `W 0x2000` (bits 0–7) y `W 0x3000` (bit 8). Todo se programa por la ventana `0x4000–0x7FFF`, así que la dirección física es `banco * 0x4000 + (a & 0x3FFF)`.
+
+## Limitaciones conocidas
+
+- La frecuencia del reloj del pin 11 se supuso de 40 MHz, como en `min_soc`. Si la UART recibe basura, cambien `CLK_HZ` en `cart_bridge.v` por la frecuencia real.
+- El modelo de simulación no reproduce los tiempos reales de la flash ni de los level shifters. Los tiempos del bus (200 ns de preparación y 500 ns de pulso) son conservadores.
+- Si el MBC5 de fábrica del cartucho no habilita la flash o el transceptor durante las escrituras, el paso `info` lo mostrará. En ese caso habría que programar un MBC5 propio en la GW1NZ del cartucho (coordinar con el grupo del cartucho).
