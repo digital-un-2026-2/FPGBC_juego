@@ -9,11 +9,9 @@ La FPGA carga un puente (`cart_bridge`) que recibe comandos del PC por UART y ge
 PC (fpgbc_cart.py) --UART--> FPGA consola (cart_bridge) --conector 32 pines--> MBC5 + flash S29GL064N
 ```
 
-Guía de diseño completa: <https://claude.ai/artifact/5pCVntXqpNy74bZwQhL8Vv>
-
 ## Contenido
 
-El diseño sigue la metodología del curso: **caja negra → diagrama de flujo (ASM) → código por módulos**, separando camino de datos y unidad de control (como `mult_32` / `control_mult`). Los diagramas están en [`docs/diagramas.md`](docs/diagramas.md) (Mermaid, GitHub los dibuja) y exportados como imágenes en `docs/img/`.
+El diseño sigue la arquitectura: **caja negra → diagrama de flujo (ASM) → código por módulos**, separando camino de datos y unidad de control (como `mult_32` / `control_mult`). Los diagramas están en [`docs/diagramas.md`](docs/diagramas.md) y exportados como imágenes en `docs/img/`.
 
 | Ruta | Qué es |
 | --- | --- |
@@ -126,6 +124,6 @@ El banco del MBC5 lo elige el PC con `W 0x2000` (bits 0–7) y `W 0x3000` (bit 8
 
 ## Limitaciones conocidas
 
-- La frecuencia del reloj del pin 11 se supuso de 40 MHz, como en `min_soc`. Si la UART recibe basura, cambien `CLK_HZ` en `cart_bridge.v` por la frecuencia real.
+- La frecuencia del reloj del pin 11 se supuso de 40 MHz, como en `min_soc`. Si la UART recibe basura, cambiar `CLK_HZ` en `cart_bridge.v` por la frecuencia real.
 - El modelo de simulación no reproduce los tiempos reales de la flash ni de los level shifters. Los tiempos del bus (200 ns de preparación y 500 ns de pulso) son conservadores.
 - Si el MBC5 de fábrica del cartucho no habilita la flash o el transceptor durante las escrituras, el paso `info` lo mostrará. En ese caso habría que programar un MBC5 propio en la GW1NZ del cartucho (coordinar con el grupo del cartucho).
