@@ -1,1 +1,83 @@
+// Pines de la GW2AR-LV18EQ144 para el puente del cartucho.
+// Fuente: FPGBC_digital_UN/identified_pins/gowin_ar_lv18e144pc.csv y blocks/blocks.d2
+// Los pines marcados SUPUESTO deben confirmarse con el multimetro antes de cargar el diseno.
 
+// Reloj, reset y UART (los mismos del min_soc)
+IO_LOC "clk" 11;
+IO_PORT "clk" IO_TYPE=LVCMOS33;
+IO_LOC "rst_n" 120;                 // boton de volumen (pull-up): presionar = reset
+IO_PORT "rst_n" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "uart_rx" 27;                // puerto link, Serial In
+IO_PORT "uart_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "uart_tx" 28;                // puerto link, Serial Out
+IO_PORT "uart_tx" IO_TYPE=LVCMOS33;
+
+// Control del cartucho (por el level shifter TXB0104)
+IO_LOC "cart_clk" 60;               // conector pin 2
+IO_PORT "cart_clk" IO_TYPE=LVCMOS33;
+IO_LOC "cart_wr_n" 61;              // conector pin 3
+IO_PORT "cart_wr_n" IO_TYPE=LVCMOS33;
+IO_LOC "cart_rd_n" 62;              // conector pin 4
+IO_PORT "cart_rd_n" IO_TYPE=LVCMOS33;
+IO_LOC "cart_cs_n" 63;              // conector pin 5
+IO_PORT "cart_cs_n" IO_TYPE=LVCMOS33;
+IO_LOC "ctrl_oe" 48;                // OE del TXB0104 (YF04E)
+IO_PORT "ctrl_oe" IO_TYPE=LVCMOS33;
+
+// SUPUESTOS: confirmar con continuidad
+IO_LOC "data_dir" 46;               // SUPUESTO: DIR del SN74LVC8T245 (LJ24SA), pin 2 del chip
+IO_PORT "data_dir" IO_TYPE=LVCMOS33;
+IO_LOC "cart_rst_n" 49;             // SUPUESTO: /RESET, conector pin 30 (NC en el EverSave)
+IO_PORT "cart_rst_n" IO_TYPE=LVCMOS33;
+
+// Direcciones A0-A15 (conector pines 6-21)
+IO_LOC "cart_a[0]" 64;
+IO_LOC "cart_a[1]" 65;
+IO_LOC "cart_a[2]" 66;
+IO_LOC "cart_a[3]" 67;
+IO_LOC "cart_a[4]" 68;
+IO_LOC "cart_a[5]" 69;
+IO_LOC "cart_a[6]" 70;
+IO_LOC "cart_a[7]" 71;
+IO_LOC "cart_a[8]" 72;
+IO_LOC "cart_a[9]" 76;
+IO_LOC "cart_a[10]" 78;
+IO_LOC "cart_a[11]" 79;
+IO_LOC "cart_a[12]" 80;
+IO_LOC "cart_a[13]" 82;
+IO_LOC "cart_a[14]" 83;             // el CSV marca 83 y 84 como IOR42A: confirmar
+IO_LOC "cart_a[15]" 84;
+IO_PORT "cart_a[0]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[1]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[2]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[3]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[4]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[5]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[6]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[7]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[8]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[9]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[10]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[11]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[12]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[13]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[14]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_a[15]" IO_TYPE=LVCMOS33;
+
+// Datos D0-D7 (conector pines 22-29, por el SN74LVC8T245)
+IO_LOC "cart_d[0]" 45;
+IO_LOC "cart_d[1]" 44;
+IO_LOC "cart_d[2]" 43;
+IO_LOC "cart_d[3]" 42;
+IO_LOC "cart_d[4]" 41;
+IO_LOC "cart_d[5]" 40;
+IO_LOC "cart_d[6]" 39;
+IO_LOC "cart_d[7]" 38;
+IO_PORT "cart_d[0]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_d[1]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_d[2]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_d[3]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_d[4]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_d[5]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_d[6]" IO_TYPE=LVCMOS33;
+IO_PORT "cart_d[7]" IO_TYPE=LVCMOS33;
