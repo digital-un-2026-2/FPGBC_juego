@@ -1,5 +1,7 @@
 # FPGBC_juego
 
+autores: David Rico, Daniel Suarez Roa, Sebastian Quejada
+
 ### Desarrollo de videojuegos para Game Boy / Game Boy Color mediante FPGA
 
 Repositorio del proyecto académico **FPGBC**, orientado al desarrollo de videojuegos y su integración con una plataforma basada en FPGA, tomando como referencia la arquitectura de las consolas Game Boy y Game Boy Color.
