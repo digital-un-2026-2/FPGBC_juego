@@ -1,0 +1,53 @@
+/*
+ * tiles.c - Graficos del juego.
+ *
+ * Formato de cada tile (igual al de la Game Boy): 8 filas x 2 bytes = 16 bytes.
+ *   byte 2*fila     = plano bajo  (bit 0 del color)
+ *   byte 2*fila + 1 = plano alto  (bit 1 del color)
+ *   el bit 7 es el pixel de la IZQUIERDA.
+ *   color = (alto << 1) | bajo   ->  0..3  (0 = transparente en sprites)
+ *
+ * Macros para escribir una fila de 8 pixeles con un solo color:
+ *   C1(b) -> pixeles encendidos (bits en 1) con color 1
+ *   C2(b) -> ... con color 2
+ *   C3(b) -> ... con color 3
+ */
+#include "tiles.h"
+
+#define C1(b) (b), 0x00
+#define C2(b) 0x00, (b)
+#define C3(b) (b), (b)
+
+const uint8_t game_tiles[TILE_COUNT * 16] = {
+    /* TILE_EMPTY: vacio */
+    C3(0x00), C3(0x00), C3(0x00), C3(0x00), C3(0x00), C3(0x00), C3(0x00), C3(0x00),
+
+    /* TILE_SOLID: bloque solido (raquetas) */
+    C3(0xFF), C3(0xFF), C3(0xFF), C3(0xFF), C3(0xFF), C3(0xFF), C3(0xFF), C3(0xFF),
+
+    /* TILE_WALL: pared superior/inferior (color 2) */
+    C2(0xFF), C2(0xFF), C2(0xFF), C2(0xFF), C2(0xFF), C2(0xFF), C2(0xFF), C2(0xFF),
+
+    /* TILE_BALL: pelota
+     *   ..XXXX..
+     *   .XXXXXX.
+     *   XXXXXXXX  (x4)
+     *   .XXXXXX.
+     *   ..XXXX..  */
+    C3(0x3C), C3(0x7E), C3(0xFF), C3(0xFF), C3(0xFF), C3(0xFF), C3(0x7E), C3(0x3C),
+
+    /* TILE_NET: linea central punteada (2 px de ancho, 4 on / 4 off) */
+    C3(0x03), C3(0x03), C3(0x03), C3(0x03), C3(0x00), C3(0x00), C3(0x00), C3(0x00),
+
+    /* TILE_DIGIT0 .. TILE_DIGIT0+9: digitos 0-9 */
+    C3(0x3C), C3(0x66), C3(0x6E), C3(0x76), C3(0x66), C3(0x66), C3(0x3C), C3(0x00), /* 0 */
+    C3(0x18), C3(0x38), C3(0x18), C3(0x18), C3(0x18), C3(0x18), C3(0x7E), C3(0x00), /* 1 */
+    C3(0x3C), C3(0x66), C3(0x06), C3(0x0C), C3(0x18), C3(0x30), C3(0x7E), C3(0x00), /* 2 */
+    C3(0x3C), C3(0x66), C3(0x06), C3(0x1C), C3(0x06), C3(0x66), C3(0x3C), C3(0x00), /* 3 */
+    C3(0x0C), C3(0x1C), C3(0x3C), C3(0x6C), C3(0x7E), C3(0x0C), C3(0x0C), C3(0x00), /* 4 */
+    C3(0x7E), C3(0x60), C3(0x7C), C3(0x06), C3(0x06), C3(0x66), C3(0x3C), C3(0x00), /* 5 */
+    C3(0x1C), C3(0x30), C3(0x60), C3(0x7C), C3(0x66), C3(0x66), C3(0x3C), C3(0x00), /* 6 */
+    C3(0x7E), C3(0x66), C3(0x0C), C3(0x18), C3(0x18), C3(0x18), C3(0x18), C3(0x00), /* 7 */
+    C3(0x3C), C3(0x66), C3(0x66), C3(0x3C), C3(0x66), C3(0x66), C3(0x3C), C3(0x00), /* 8 */
+    C3(0x3C), C3(0x66), C3(0x66), C3(0x3E), C3(0x06), C3(0x0C), C3(0x38), C3(0x00), /* 9 */
+};
