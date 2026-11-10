@@ -139,15 +139,54 @@ static void move_player(uint8_t b)
 
 static void move_cpu(void)
 {
-    if (ball_vx > 0) {                        /* solo reacciona si la bola viene hacia ella */
-        int16_t target = ball_y + BALL_S / 2;
-        int16_t center = p2_y + PADDLE_H / 2;
-        if (target < center - 3)      p2_y -= CPU_SPEED;
-        else if (target > center + 3) p2_y += CPU_SPEED;
-        p2_y = clamp_paddle(p2_y);
-    }
-}
+    int16_t target;
+    int8_t current_cpu_speed = CPU_SPEED;
 
+    /* 1. Evaluar diferencia de puntos para la dificultad y el modo "relajado" */
+    int8_t score_diff = (int8_t)score2 - (int8_t)score1; // score2 = CPU, score1 = Jugador
+
+    if (score_diff >= 3) {
+        current_cpu_speed = 1; // Se relaja si va ganando por mucho
+    } else if (score_diff <= -2) {
+        current_cpu_speed = 2; // Se esfuerza más si va perdiendo
+    } else {
+        current_cpu_speed = 1;
+    }
+
+    if (ball_vx > 0) {
+        /* 2. ATAQUE VERTICAL: La bola viene hacia la CPU */
+        
+        int16_t offset = 0;
+        
+        /* Si la IA no está en su modo relajado, busca atacar con ángulos cerrados */
+        if (score_diff < 3) {
+            /* En lugar de alinear el centro exacto, busca golpear con los extremos 
+             * de la raqueta para generar tiros diagonales difíciles para el jugador. */
+            if (ball_y < (FIELD_TOP + FIELD_BOTTOM) / 2) {
+                offset = 8;  /* Fuerza un impacto con la parte baja de la raqueta (manda la bola hacia abajo) */
+            } else {
+                offset = -8; /* Fuerza un impacto con la parte alta de la raqueta (manda la bola hacia arriba) */
+            }
+        }
+
+        /* El objetivo de movimiento incluye el offset para forzar el tiro esquinado */
+        target = ball_y + BALL_S / 2 + offset;
+
+    } else {
+        /* 3. REPOSICIONAMIENTO: Cuando la bola se aleja, regresa tranquilamente al centro */
+        target = (FIELD_TOP + FIELD_BOTTOM) / 2;
+        current_cpu_speed = 1;
+    }
+
+    /* Movimiento vertical suave hacia el objetivo calculado */
+    int16_t center = p2_y + PADDLE_H / 2;
+    if (target < center - 2)      
+        p2_y -= current_cpu_speed;
+    else if (target > center + 2) 
+        p2_y += current_cpu_speed;
+
+    p2_y = clamp_paddle(p2_y);
+}
 static void update_ball(void)
 {
     ball_x += ball_vx;
