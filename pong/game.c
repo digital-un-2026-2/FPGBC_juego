@@ -33,9 +33,11 @@
 #define SPR_BALL 8
 
 /* Celdas del marcador en el mapa de fondo */
-#define SCORE1_TX 6
-#define SCORE2_TX 13
+/* (se calculan desde MAP_W para que sigan centrados si cambia la resolucion) */
+#define SCORE1_TX (MAP_W / 2 - 4)
+#define SCORE2_TX (MAP_W / 2 + 3)
 #define SCORE_TY  1
+#define NET_TX    (MAP_W / 2 - 1)   /* el tile NET lleva la linea en su borde derecho */
 
 enum { ST_SERVE, ST_PLAY, ST_OVER };
 
@@ -189,7 +191,7 @@ void game_init(void)
         hal_set_bg(x, MAP_H - 1, TILE_WALL);      /* pared inferior */
     }
     for (y = 3; y < MAP_H - 1; y++)
-        hal_set_bg(9, y, TILE_NET);               /* red central */
+        hal_set_bg(NET_TX, y, TILE_NET);          /* red central */
 
     game_reset();
 }

@@ -9,7 +9,15 @@
 #include "raylib.h"
 #include "hal.h"
 
-#define SCALE 4
+/* Escala entera: cuantos pixeles reales ocupa cada pixel logico.
+ * Se toma la mas pequena entre ancho y alto para que la imagen quepa en el panel. */
+#define SCALE_X (PANEL_SIZE / SCREEN_W)
+#define SCALE_Y (PANEL_SIZE / SCREEN_H)
+#define SCALE   (SCALE_X < SCALE_Y ? SCALE_X : SCALE_Y)
+
+/* Si el panel no se llena exacto, la imagen se centra y quedan bordes negros */
+#define OFFSET_X ((PANEL_SIZE - SCREEN_W * SCALE) / 2)
+#define OFFSET_Y ((PANEL_SIZE - SCREEN_H * SCALE) / 2)
 
 /* "Memoria de video" simulada */
 static uint8_t tiles[MAX_TILES][16];
@@ -32,7 +40,7 @@ static const Color palette[4] = {
 void hal_init(void)
 {
     Image img;
-    InitWindow(SCREEN_W * SCALE, SCREEN_H * SCALE, "Pong FPGBC (simulador raylib)");
+    InitWindow(PANEL_SIZE, PANEL_SIZE, "Pong FPGBC (simulador raylib)");
     SetTargetFPS(60);
 
     img = GenImageColor(SCREEN_W, SCREEN_H, BLACK);
@@ -137,7 +145,7 @@ int hal_frame(void)
     ClearBackground(BLACK);
     DrawTexturePro(screen_tex,
                    (Rectangle){ 0, 0, SCREEN_W, SCREEN_H },
-                   (Rectangle){ 0, 0, SCREEN_W * SCALE, SCREEN_H * SCALE },
+                   (Rectangle){ OFFSET_X, OFFSET_Y, SCREEN_W * SCALE, SCREEN_H * SCALE },
                    (Vector2){ 0, 0 }, 0.0f, WHITE);
     EndDrawing();                       /* con SetTargetFPS(60) esto hace de "VBlank" */
 
