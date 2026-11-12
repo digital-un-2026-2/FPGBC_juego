@@ -1,0 +1,15 @@
+GBDK_HOME ?= C:/gbdk/
+
+LCC   = $(GBDK_HOME)bin/lcc
+SRC   = main.c game.c tiles.c hal_gbdk.c
+
+# -DPLATFORM_GBDK : fija la resolucion a 160x144
+# -Wm-ynPONG      : titulo de la ROM
+# -Wm-yc          : marca la ROM como compatible con Game Boy Color
+FLAGS = -DPLATFORM_GBDK -Wm-ynPONG -Wm-yc
+
+pong.gb: $(SRC) hal.h game.h tiles.h
+	$(LCC) $(FLAGS) -o pong.gb $(SRC)
+
+clean:
+	rm -f pong.gb *.o *.lst *.map *.sym *.asm *.ihx *.noi
