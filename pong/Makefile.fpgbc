@@ -1,0 +1,66 @@
+# Makefile para compilar el Pong para la consola FPGBC (SoC LiteX + FemtoRV)
+#
+# Se basa en firmware/test/buttons/Makefile de FPGBC_digital_UN.
+# Requisitos:
+#   1. Haber construido el SoC con los botones, desde FPGBC_digital_UN:
+#        python soc/FPGBC_unal_target.py --build --with-game-buttons
+#   2. Ajustar estas dos rutas si los repositorios no estan uno al lado del otro:
+#        BUILD_DIR = carpeta build/FPGBC_unal_platform del SoC
+#        LINKER    = linker.ld del ejemplo de botones
+#
+# Uso:
+#   make -f Makefile.fpgbc                 -> pong.bin
+#   make -f Makefile.fpgbc UART_DEBUG=1    -> pong.bin que dibuja la pantalla por UART
+#   litex_term /dev/ttyUSBX --kernel=pong.bin   (en Windows: COMx)
+#
+# NOTA: no se ha podido probar sin el build del SoC. Revisar al primer intento.
+DIGITAL_UN ?= ../../FPGBC_digital_UN
+BUILD_DIR  ?= $(DIGITAL_UN)/build/FPGBC_unal_platform
+LINKER     ?= $(DIGITAL_UN)/firmware/test/buttons/linker.ld
+
+include $(BUILD_DIR)/software/include/generated/variables.mak
+include $(SOC_DIRECTORY)/software/common.mak
+
+OBJECTS = crt0.o main.o game.o tiles.o hal_fpgbc.o
+
+ifeq ($(UART_DEBUG),1)
+CFLAGS += -DHAL_UART_DEBUG
+endif
+
+COMMA = ,
+REGULAR_LIBS = $(filter-out $(ALWAYS_LINK_LIBS),$(LIBS))
+ALWAYS_LINK_LIBFLAGS = $(if $(ALWAYS_LINK_LIBS),-Wl$(COMMA)--whole-archive $(ALWAYS_LINK_LIBS:lib%=-l%) -Wl$(COMMA)--no-whole-archive)
+
+all: pong.bin
+	$(PYTHON) -m litex.soc.software.memusage pong.elf $(BUILD_DIR)/software/include/generated/regions.ld $(TRIPLE)
+
+%.bin: %.elf
+	$(OBJCOPY) -O binary $< $@
+	chmod -x $@
+
+pong.elf: $(OBJECTS)
+	$(CC) $(LDFLAGS) -T $(LINKER) -N -o $@ \
+		$(OBJECTS) \
+		$(PACKAGES:%=-L$(BUILD_DIR)/software/%) \
+		-Wl,--start-group \
+		$(REGULAR_LIBS:lib%=-l%) \
+		$(ALWAYS_LINK_LIBFLAGS) \
+		-Wl,--end-group \
+		-Wl,--gc-sections \
+		-Wl,-Map,$@.map
+	chmod -x $@
+
+-include $(OBJECTS:.o=.d)
+
+VPATH = $(BIOS_DIRECTORY):$(BIOS_DIRECTORY)/cmds:$(CPU_DIRECTORY)
+
+%.o: %.c
+	$(compile)
+
+%.o: %.S
+	$(assemble)
+
+clean:
+	$(RM) $(OBJECTS) $(OBJECTS:.o=.d) pong.elf pong.elf.map pong.bin
+
+.PHONY: all clean

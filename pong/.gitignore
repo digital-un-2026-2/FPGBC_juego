@@ -1,0 +1,16 @@
+# Ejecutables y objetos generados
+pong.exe
+*.o
+*.d
+pong.elf
+pong.elf.map
+pong.bin
+
+# raylib se descarga aparte (ver README)
+include/
+lib/
+
+# Pruebas
+pruebas/pong_test
+pruebas/pong_test.exe
+pruebas/capturas/*.ppm
