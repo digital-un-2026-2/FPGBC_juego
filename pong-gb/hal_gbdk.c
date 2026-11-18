@@ -23,6 +23,10 @@ void hal_init(void)
     SPRITES_8x8;                 /* sprites de 8x8 */
     BGP_REG  = 0xE4;             /* paleta del fondo:   0 claro ... 3 oscuro */
     OBP0_REG = 0xE4;             /* paleta de sprites:  igual */
+
+    NR52_REG = 0x80;             /* enciende el sonido */
+    NR51_REG = 0xFF;             /* todos los canales a los dos altavoces */
+    NR50_REG = 0x77;             /* volumen general al maximo */
 }
 
 void hal_shutdown(void)
@@ -74,6 +78,26 @@ uint8_t hal_buttons(void)
     if (j & J_START)  b |= BTN_START;
     if (j & J_SELECT) b |= BTN_SELECT;
     return b;
+}
+
+/*
+ * Sonido: canal 2 de la Game Boy (onda cuadrada, sin barrido).
+ * Registro de frecuencia: x = 2048 - 131072 / hz   (hz entre 64 y 131072)
+ * hz = 0 -> silencio (se apaga el DAC del canal escribiendo 0 en NR22).
+ */
+void hal_tone(uint16_t hz)
+{
+    uint16_t x;
+
+    if (hz == 0) {
+        NR22_REG = 0x00;
+        return;
+    }
+    x = (uint16_t)(2048u - 131072UL / hz);
+    NR21_REG = 0x80;                                   /* ciclo de trabajo del 50 % */
+    NR22_REG = 0xA0;                                   /* volumen 10 de 15, sin envolvente */
+    NR23_REG = (uint8_t)(x & 0xFF);
+    NR24_REG = (uint8_t)(0x80 | ((x >> 8) & 0x07));    /* bit 7 = reiniciar el canal */
 }
 
 int hal_frame(void)

@@ -21,6 +21,7 @@
 #include "game.h"
 #include "hal.h"
 #include "tiles.h"
+#include "sound.h"
 
 /* Geometria (en pixeles) */
 #define FIELD_TOP      24                       /* debajo de la pared superior */
@@ -225,8 +226,8 @@ static void show_title(void)
 
 static void update_title(uint8_t pressed)
 {
-    if ((pressed & BTN_DOWN) && dif_sel < DIF_COUNT - 1) { dif_sel++; draw_menu_cursor(); }
-    if ((pressed & BTN_UP)   && dif_sel > 0)             { dif_sel--; draw_menu_cursor(); }
+    if ((pressed & BTN_DOWN) && dif_sel < DIF_COUNT - 1) { dif_sel++; draw_menu_cursor(); sound_play(SND_MENU); }
+    if ((pressed & BTN_UP)   && dif_sel > 0)             { dif_sel--; draw_menu_cursor(); sound_play(SND_MENU); }
 
     /* Bola de demostracion */
     ball_x += ball_vx;
@@ -278,15 +279,19 @@ static void serve(void)
     ball_vx = (serve_dir > 0) ? 2 : -2;
     ball_vy = vy_tab[frame_count & 3];
     state = ST_PLAY;
+    sound_play(SND_SERVE);
 }
 
 static void show_game_over(void)
 {
     state = ST_OVER;
-    if (score1 > score2)
+    if (score1 > score2) {
         draw_text(6, OVER_TY, "GANASTE");
-    else
+        sound_play(SND_WIN);
+    } else {
         draw_text(6, OVER_TY, "PERDISTE");
+        sound_play(SND_LOSE);
+    }
     draw_text(5, OVER_TY + 4, "START OTRA");
     draw_text(4, OVER_TY + 6, "SELECT MENU");
 }
@@ -297,6 +302,7 @@ static void point_for(uint8_t who)
     else          { score2++; serve_dir = -1; }
     draw_hud();
     reset_ball();
+    sound_play((who == 1) ? SND_POINT_WIN : SND_POINT_LOSE);
     if (score1 >= WIN_SCORE || score2 >= WIN_SCORE)
         show_game_over();
     else
@@ -319,7 +325,11 @@ static void paddle_bounce(int16_t paddle_y, int8_t dir)
     if (hits < 255) hits++;
     s = (int8_t)(2 + (hits >> 2));            /* +1 de velocidad cada 4 golpes */
     if (s > dif->vel_max_bola) s = dif->vel_max_bola;
-    if (s > prev_s) ball_blink = BLINK_FRAMES; /* aviso visual: la bola acelero */
+    sound_play((dir > 0) ? SND_HIT_P1 : SND_HIT_P2);
+    if (s > prev_s) {
+        ball_blink = BLINK_FRAMES;             /* aviso visual: la bola acelero */
+        sound_play(SND_SPEEDUP);
+    }
 
     ball_vx = (dir > 0) ? s : (int8_t)-s;
     /* el angulo depende de donde pego en la raqueta (off/8, simetrico, sin dividir) */
@@ -391,9 +401,11 @@ static void update_ball(void)
     if (ball_y < FIELD_TOP) {
         ball_y = FIELD_TOP;
         ball_vy = (int8_t)-ball_vy;
+        sound_play(SND_WALL);
     } else if (ball_y > FIELD_BOTTOM - BALL_S) {
         ball_y = FIELD_BOTTOM - BALL_S;
         ball_vy = (int8_t)-ball_vy;
+        sound_play(SND_WALL);
     }
 
     /* raquetas */
@@ -426,6 +438,7 @@ static void update_effects(void)
 void game_init(void)
 {
     hal_load_tiles(0, TILE_COUNT, game_tiles);
+    sound_init();
     dif_sel = DIF_NORMAL;
     show_title();
 }
@@ -436,11 +449,15 @@ void game_update(void)
     uint8_t pressed = (uint8_t)(b & (uint8_t)~prev_btn);   /* flanco de subida */
     prev_btn = b;
     frame_count++;
+    sound_update();                               /* avanza el efecto de sonido en curso */
 
     switch (state) {
     case ST_TITLE:
         update_title(pressed);
-        if (pressed & (BTN_START | BTN_A)) game_reset();
+        if (pressed & (BTN_START | BTN_A)) {
+            sound_play(SND_START);
+            game_reset();
+        }
         return;                                   /* en el titulo no hay raquetas */
 
     case ST_SERVE:
@@ -451,6 +468,7 @@ void game_update(void)
     case ST_PLAY:
         if (pressed & BTN_START) {                /* pausa */
             state = ST_PAUSE;
+            sound_play(SND_PAUSE);
             draw_text(8, PAUSE_TY, "PAUSA");
             draw_text(4, PAUSE_TY + 3, "SELECT MENU");
             break;
@@ -466,6 +484,7 @@ void game_update(void)
             restore_row(PAUSE_TY);
             restore_row(PAUSE_TY + 3);
             state = ST_PLAY;
+            sound_play(SND_RESUME);
         } else if (pressed & BTN_SELECT) {
             show_title();
             return;
@@ -479,6 +498,7 @@ void game_update(void)
         else
             hal_set_bg(SCORE2_TX, SCORE_TY, (frame_count & 16) ? TILE_EMPTY : (uint8_t)(TILE_DIGIT0 + score2));
         if (pressed & BTN_START) {
+            sound_play(SND_START);
             game_reset();
         } else if (pressed & (BTN_SELECT | BTN_B)) {
             show_title();
