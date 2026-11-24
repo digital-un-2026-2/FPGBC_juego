@@ -6,8 +6,9 @@ SRC   = main.c game.c link.c sound.c tiles.c hal_gbdk.c
 # -DPLATFORM_GBDK : fija la resolucion a 160x144
 # -DUSE_SOUND     : activa los efectos de sonido (sound.c + hal_tone)
 # -Wm-ynPONG      : titulo de la ROM
-# -Wm-yc          : marca la ROM como compatible con Game Boy Color
-FLAGS = -DPLATFORM_GBDK -DUSE_SOUND -Wm-ynPONG -Wm-yc
+# (sin -Wm-yc: la ROM se declara de Game Boy normal, asi una consola/nucleo con
+#  modo Color la corre en modo compatible y usa las paletas BGP/OBP0 del codigo)
+FLAGS = -DPLATFORM_GBDK -DUSE_SOUND -Wm-ynPONG
 
 pong.gb: $(SRC) hal.h game.h tiles.h link.h sound.h
 	$(LCC) $(FLAGS) -o pong.gb $(SRC)

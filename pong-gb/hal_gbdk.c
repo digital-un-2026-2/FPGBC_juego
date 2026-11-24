@@ -195,8 +195,21 @@ static void link_tick(void)
 
 void hal_init(void)
 {
+    uint8_t i;
+
     DISPLAY_OFF;                 /* LCD apagado mientras se cargan los graficos */
-    SPRITES_8x8;                 /* sprites de 8x8 */
+
+    /* No se confia en el estado inicial del hardware: en la Game Boy real el
+     * BIOS deja LCDC en 0x91, pero un clon o un nucleo en FPGA puede arrancar
+     * con otros valores (por ejemplo, el fondo leyendo los tiles de 0x8800 en
+     * vez de 0x8000: los sprites se veran bien y el fondo, vacio). Aqui se fija
+     * todo: fondo con tiles en 0x8000, mapa del fondo en 0x9800, sprites de 8x8,
+     * ventana apagada. DISPLAY_ON y SHOW_* se activan despues, en hal_frame(). */
+    LCDC_REG = LCDCF_BG8000 | LCDCF_BG9800 | LCDCF_OBJ8 | LCDCF_WINOFF;
+    SCX_REG  = 0;
+    SCY_REG  = 0;
+    fill_bkg_rect(0, 0, 32, 32, 0);              /* mapa del fondo limpio (tile 0 = vacio) */
+    for (i = 0; i < 40; i++) move_sprite(i, 0, 0);   /* los 40 sprites fuera de pantalla */
     BGP_REG  = 0xE4;             /* paleta del fondo:   0 claro ... 3 oscuro */
     OBP0_REG = 0xE4;             /* paleta de sprites:  igual */
 

@@ -1,2 +1,2 @@
-C:\gbdk-win64\gbdk\bin\lcc -DPLATFORM_GBDK -DUSE_SOUND -Wm-ynPONG -Wm-yc -Wa-l -Wl-m -Wl-j -o pong.gb main.c game.c link.c sound.c tiles.c hal_gbdk.c
+C:\gbdk-win64\gbdk\bin\lcc -DPLATFORM_GBDK -DUSE_SOUND -Wm-ynPONG -Wa-l -Wl-m -Wl-j -o pong.gb main.c game.c link.c sound.c tiles.c hal_gbdk.c
 pause
