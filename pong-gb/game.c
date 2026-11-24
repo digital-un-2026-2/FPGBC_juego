@@ -8,20 +8,52 @@
  *    tener extension M): se usan desplazamientos y tablas.
  *  - Todo el hardware pasa por hal.h.
  *
- * Flujo de pantallas:
+ * Botones en todo el juego: START = elegir / sacar / pausar / continuar,
+ * SELECT = volver. Las flechas mueven el cursor y la raqueta de J1. A y B solo
+ * se usan en el 1 VS 1 LOCAL, como flechas de J2 (A sube, B baja).
  *
- *   TITULO --A/START--> SAQUE --A/START--> JUEGO --punto--> SAQUE
- *     ^                                     |  ^
- *     |                               START |  | START
- *     |                                     v  |
- *     +-------------SELECT-------------- PAUSA
- *     |
- *     +--SELECT/B-- FIN (GANASTE/PERDISTE) --START--> SAQUE (revancha)
+ * Menu por secciones:
+ *
+ *   TITULO: CONTRA IA / 1 VS 1
+ *     |-- CONTRA IA --> FACIL / NORMAL / DIFICIL --START--> partida contra la CPU
+ *     '-- 1 VS 1 ----> LOCAL / CABLE
+ *                        |-- LOCAL --START--> partida de dos en la misma consola
+ *                        '-- CABLE --START--> CONECTANDO --> partida entre dos consolas
+ *   (SELECT en una seccion vuelve a la anterior)
+ *
+ * Partida (igual en todos los modos):
+ *
+ *   SAQUE --START--> JUEGO --punto--> SAQUE
+ *                     |  ^
+ *               START |  | START
+ *                     v  |
+ *                    PAUSA --SELECT--> TITULO
+ *
+ *   FIN (GANASTE/PERDISTE o GANA J1/J2) --START--> SAQUE (revancha)
+ *                                       --SELECT-> TITULO
+ *
+ * 1 VS 1 por CABLE (dos consolas unidas por el cable de enlace, ver link.h):
+ *   - Las dos consolas se saludan con un numero al azar. La del numero mayor
+ *     es el MAESTRO (J1, raqueta izquierda): ella sola calcula la partida.
+ *   - La otra es el ESCLAVO (J2, raqueta derecha): cada cuadro le manda sus
+ *     botones al maestro y dibuja el estado que el maestro le devuelve.
+ *   - Cualquiera de los dos puede sacar, pausar, pedir revancha o volver al menu.
+ *   - SELECT cancela la busqueda; 2 s sin datos = SIN CONEXION.
  */
 #include "game.h"
 #include "hal.h"
 #include "tiles.h"
+#include "link.h"
 #include "sound.h"
+
+/* Sonido: solo si se compila con -DUSE_SOUND (y se enlaza sound.c, y el HAL
+ * trae hal_tone). Sin esa bandera todas las llamadas desaparecen y el juego
+ * compila igual que antes en el PC y en la FPGBC. */
+#ifndef USE_SOUND
+#define sound_init()     ((void)0)
+#define sound_update()   ((void)0)
+#define sound_play(id)   ((void)(id))
+#endif
 
 /* Geometria (en pixeles) */
 #define FIELD_TOP      24                       /* debajo de la pared superior */
@@ -35,6 +67,9 @@
 /* Reglas */
 #define WIN_SCORE      7
 #define PLAYER_SPEED   2
+
+/* 1 VS 1: cuadros sin recibir nada antes de decir "SIN CONEXION" (2 s) */
+#define LINK_TIMEOUT   120
 
 /* Efectos visuales (en cuadros) */
 #define SHAKE_FRAMES   6    /* la raqueta tiembla al golpear */
@@ -58,7 +93,17 @@
 #define PAUSE_TY       8
 #define OVER_TY        6
 
-enum { ST_TITLE, ST_SERVE, ST_PLAY, ST_PAUSE, ST_OVER };
+enum { ST_TITLE, ST_SERVE, ST_PLAY, ST_PAUSE, ST_OVER, ST_LINK_WAIT, ST_LOST };
+
+/* Quien calcula la partida */
+enum { ROL_CPU,       /* un jugador contra la CPU                          */
+       ROL_LOCAL,     /* 1 VS 1 LOCAL: dos jugadores en la misma consola   */
+       ROL_MAESTRO,   /* 1 VS 1 CABLE: esta consola es J1 y calcula todo   */
+       ROL_ESCLAVO }; /* 1 VS 1 CABLE: esta consola es J2 y solo dibuja    */
+
+/* Botones de J2 en el modo LOCAL */
+#define BTN_J2_UP    BTN_A
+#define BTN_J2_DOWN  BTN_B
 
 /* ------------------------------------------------------------------ */
 /* Dificultad                                                          */
@@ -82,7 +127,14 @@ static const struct Dificultad dificultades[DIF_COUNT] = {
     { 2, 3, 1, 0, 5 },
 };
 
-static const char *const nombres_dif[DIF_COUNT] = { "FACIL", "NORMAL", "DIFICIL" };
+/* Secciones del menu */
+enum { PAG_MODO, PAG_IA, PAG_1VS1 };
+enum { MODO_IA, MODO_1VS1, MODO_COUNT };
+enum { ENL_LOCAL, ENL_CABLE, ENL_COUNT };
+
+static const char *const nombres_modo[MODO_COUNT]  = { "CONTRA IA", "1 VS 1" };
+static const char *const nombres_dif[DIF_COUNT]    = { "FACIL", "NORMAL", "DIFICIL" };
+static const char *const nombres_enl[ENL_COUNT]    = { "LOCAL", "CABLE" };
 
 /* ------------------------------------------------------------------ */
 /* Estado del juego                                                    */
@@ -95,11 +147,42 @@ static uint8_t score1, score2;
 static uint8_t state, hits;
 static uint8_t frame_count, prev_btn;
 
-static uint8_t dif_sel;                         /* opcion marcada en el menu */
+static uint8_t menu_pag;                        /* seccion del menu que se ve */
+static uint8_t modo_sel, dif_sel, enl_sel;      /* opcion marcada en cada seccion */
 static const struct Dificultad *dif;            /* dificultad de la partida */
 
 static uint8_t p1_shake, p2_shake;              /* cuadros restantes de temblor */
 static uint8_t ball_blink;                      /* cuadros restantes de parpadeo */
+
+/* 1 VS 1 */
+static uint8_t  rol;                            /* ROL_CPU, ROL_LOCAL, ROL_MAESTRO o ROL_ESCLAVO */
+static uint16_t azar = 0xACE1;                  /* numero pseudoaleatorio (xorshift) */
+static uint16_t mi_id;                          /* numero con el que se saluda */
+static uint8_t  remoto_btn, remoto_prev;        /* botones del esclavo (en el maestro) */
+static uint8_t  sin_datos;                      /* cuadros sin recibir paquetes */
+static uint8_t  seq_tx;                         /* contador de paquetes enviados */
+static uint8_t  evento_snd;                     /* ultimo efecto del cuadro (+1), para el esclavo */
+
+/* Suena aqui y, si esta consola es la maestra, se anota para que el esclavo
+ * lo oiga tambien (viaja en el byte libre del paquete de estado) */
+static void play(uint8_t id)
+{
+    sound_play(id);
+    evento_snd = (uint8_t)(id + 1);
+}
+
+/* El esclavo oye los puntos y el final desde SU punto de vista: lo que para el
+ * maestro es "anotaste", para el esclavo es "te anotaron" */
+static uint8_t snd_para_esclavo(uint8_t id)
+{
+    switch (id) {
+    case SND_POINT_WIN:  return SND_POINT_LOSE;
+    case SND_POINT_LOSE: return SND_POINT_WIN;
+    case SND_WIN:        return SND_LOSE;
+    case SND_LOSE:       return SND_WIN;
+    default:             return id;
+    }
+}
 
 /* ------------------------------------------------------------------ */
 /* Fondo y texto                                                       */
@@ -155,6 +238,13 @@ static void draw_hud(void)
 {
     hal_set_bg(SCORE1_TX, SCORE_TY, (uint8_t)(TILE_DIGIT0 + score1));
     hal_set_bg(SCORE2_TX, SCORE_TY, (uint8_t)(TILE_DIGIT0 + score2));
+    /* En 1 VS 1 cada consola marca con "TU" su propio marcador */
+    if (rol == ROL_MAESTRO)      draw_text(SCORE1_TX, 0, "TU");
+    else if (rol == ROL_ESCLAVO) draw_text(SCORE2_TX, 0, "TU");
+    else if (rol == ROL_LOCAL) {                    /* en LOCAL: quien es quien */
+        draw_text(SCORE1_TX - 1, 0, "J1");
+        draw_text(SCORE2_TX, 0, "J2");
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -191,31 +281,68 @@ static void draw_sprites(void)
 /* Pantalla de titulo y menu de dificultad                             */
 /* ------------------------------------------------------------------ */
 
+/* Opciones y cursor de la seccion actual */
+static uint8_t menu_count(void)
+{
+    if (menu_pag == PAG_IA)   return DIF_COUNT;
+    if (menu_pag == PAG_1VS1) return ENL_COUNT;
+    return MODO_COUNT;
+}
+
+static uint8_t *menu_sel(void)
+{
+    if (menu_pag == PAG_IA)   return &dif_sel;
+    if (menu_pag == PAG_1VS1) return &enl_sel;
+    return &modo_sel;
+}
+
+static const char *menu_name(uint8_t i)
+{
+    if (menu_pag == PAG_IA)   return nombres_dif[i];
+    if (menu_pag == PAG_1VS1) return nombres_enl[i];
+    return nombres_modo[i];
+}
+
 static void draw_menu_cursor(void)
 {
-    uint8_t i, ty = MENU_TY0;
-    for (i = 0; i < DIF_COUNT; i++) {
-        hal_set_bg(MENU_TX - 2, ty, (i == dif_sel) ? TILE_CURSOR : TILE_EMPTY);
+    uint8_t i, ty = MENU_TY0, n = menu_count(), sel = *menu_sel();
+    for (i = 0; i < n; i++) {
+        hal_set_bg(MENU_TX - 2, ty, (i == sel) ? TILE_CURSOR : TILE_EMPTY);
         ty += 2;
     }
 }
 
-static void show_title(void)
+/* Dibuja la seccion 'pag' del menu (la bola de demostracion sigue rebotando) */
+static void show_menu_page(uint8_t pag)
 {
-    uint8_t i, ty = MENU_TY0;
+    uint8_t i, ty = MENU_TY0, n;
 
-    state = ST_TITLE;
-    hide_all_sprites();
+    menu_pag = pag;
     clear_screen();
-
     draw_text(6, 2, "P O N G");
     draw_text(7, 4, "FPGBC");
-    for (i = 0; i < DIF_COUNT; i++) {
-        draw_text(MENU_TX, ty, nombres_dif[i]);
+
+    n = menu_count();
+    for (i = 0; i < n; i++) {
+        draw_text(MENU_TX, ty, menu_name(i));
         ty += 2;
     }
-    draw_text(5, 15, "PULSA START");
+    if (pag == PAG_MODO) {
+        draw_text(5, 16, "PULSA START");
+    } else {
+        draw_text((pag == PAG_IA) ? 5 : 7, 6, (pag == PAG_IA) ? "CONTRA LA IA" : "1 VS 1");
+        draw_text(4, 15, "START JUGAR");
+        draw_text(3, 16, "SELECT VOLVER");
+    }
     draw_menu_cursor();
+}
+
+static void show_title(void)
+{
+    state = ST_TITLE;
+    rol   = ROL_CPU;
+    hide_all_sprites();
+    show_menu_page(PAG_MODO);
 
     /* La bola rebota por la pantalla como demostracion */
     ball_x  = 16;
@@ -226,8 +353,10 @@ static void show_title(void)
 
 static void update_title(uint8_t pressed)
 {
-    if ((pressed & BTN_DOWN) && dif_sel < DIF_COUNT - 1) { dif_sel++; draw_menu_cursor(); sound_play(SND_MENU); }
-    if ((pressed & BTN_UP)   && dif_sel > 0)             { dif_sel--; draw_menu_cursor(); sound_play(SND_MENU); }
+    uint8_t *sel = menu_sel();
+
+    if ((pressed & BTN_DOWN) && *sel < menu_count() - 1) { (*sel)++; draw_menu_cursor(); sound_play(SND_MENU); }
+    if ((pressed & BTN_UP)   && *sel > 0)                { (*sel)--; draw_menu_cursor(); sound_play(SND_MENU); }
 
     /* Bola de demostracion */
     ball_x += ball_vx;
@@ -260,7 +389,8 @@ static void reset_ball(void)
 
 static void game_reset(void)
 {
-    dif    = &dificultades[dif_sel];
+    /* En 1 VS 1 no hay CPU: se usa la velocidad de bola de NORMAL */
+    dif    = &dificultades[(rol == ROL_CPU) ? dif_sel : DIF_NORMAL];
     score1 = 0;
     score2 = 0;
     p1_y = p2_y = (FIELD_TOP + FIELD_BOTTOM - PADDLE_H) / 2;
@@ -279,18 +409,25 @@ static void serve(void)
     ball_vx = (serve_dir > 0) ? 2 : -2;
     ball_vy = vy_tab[frame_count & 3];
     state = ST_PLAY;
-    sound_play(SND_SERVE);
+    play(SND_SERVE);
 }
 
 static void show_game_over(void)
 {
+    /* "Mi" marcador: J1 en modo CPU y en el maestro; J2 en el esclavo */
+    uint8_t mio  = (rol == ROL_ESCLAVO) ? score2 : score1;
+    uint8_t otro = (rol == ROL_ESCLAVO) ? score1 : score2;
+
     state = ST_OVER;
-    if (score1 > score2) {
+    if (rol == ROL_LOCAL) {             /* en la misma consola no hay "yo" */
+        draw_text(6, OVER_TY, (score1 > score2) ? "GANA J1" : "GANA J2");
+        play(SND_WIN);
+    } else if (mio > otro) {
         draw_text(6, OVER_TY, "GANASTE");
-        sound_play(SND_WIN);
+        play(SND_WIN);
     } else {
         draw_text(6, OVER_TY, "PERDISTE");
-        sound_play(SND_LOSE);
+        play(SND_LOSE);
     }
     draw_text(5, OVER_TY + 4, "START OTRA");
     draw_text(4, OVER_TY + 6, "SELECT MENU");
@@ -302,7 +439,8 @@ static void point_for(uint8_t who)
     else          { score2++; serve_dir = -1; }
     draw_hud();
     reset_ball();
-    sound_play((who == 1) ? SND_POINT_WIN : SND_POINT_LOSE);
+    /* En LOCAL los dos son jugadores: siempre suena el de "anotar" */
+    play((who == 1 || rol == ROL_LOCAL) ? SND_POINT_WIN : SND_POINT_LOSE);
     if (score1 >= WIN_SCORE || score2 >= WIN_SCORE)
         show_game_over();
     else
@@ -325,10 +463,10 @@ static void paddle_bounce(int16_t paddle_y, int8_t dir)
     if (hits < 255) hits++;
     s = (int8_t)(2 + (hits >> 2));            /* +1 de velocidad cada 4 golpes */
     if (s > dif->vel_max_bola) s = dif->vel_max_bola;
-    sound_play((dir > 0) ? SND_HIT_P1 : SND_HIT_P2);
+    play((dir > 0) ? SND_HIT_P1 : SND_HIT_P2);
     if (s > prev_s) {
         ball_blink = BLINK_FRAMES;             /* aviso visual: la bola acelero */
-        sound_play(SND_SPEEDUP);
+        play(SND_SPEEDUP);
     }
 
     ball_vx = (dir > 0) ? s : (int8_t)-s;
@@ -341,11 +479,30 @@ static void paddle_bounce(int16_t paddle_y, int8_t dir)
     if (ball_vy == 0) ball_vy = (frame_count & 1) ? 1 : -1;
 }
 
+static void move_paddle(int16_t *py, uint8_t b)
+{
+    if (b & BTN_UP)   *py -= PLAYER_SPEED;
+    if (b & BTN_DOWN) *py += PLAYER_SPEED;
+    *py = clamp_paddle(*py);
+}
+
 static void move_player(uint8_t b)
 {
-    if (b & BTN_UP)   p1_y -= PLAYER_SPEED;
-    if (b & BTN_DOWN) p1_y += PLAYER_SPEED;
-    p1_y = clamp_paddle(p1_y);
+    move_paddle(&p1_y, b);
+}
+
+/* Raqueta de J2 cuando la mueve una persona (no la CPU) */
+static void move_p2(uint8_t b)
+{
+    if (rol == ROL_LOCAL) {
+        /* misma consola: A sube y B baja */
+        uint8_t b2 = 0;
+        if (b & BTN_J2_UP)   b2 |= BTN_UP;
+        if (b & BTN_J2_DOWN) b2 |= BTN_DOWN;
+        move_paddle(&p2_y, b2);
+    } else if (rol == ROL_MAESTRO) {
+        move_paddle(&p2_y, remoto_btn);   /* las flechas de la otra consola */
+    }
 }
 
 static void move_cpu(void)
@@ -401,11 +558,11 @@ static void update_ball(void)
     if (ball_y < FIELD_TOP) {
         ball_y = FIELD_TOP;
         ball_vy = (int8_t)-ball_vy;
-        sound_play(SND_WALL);
+        play(SND_WALL);
     } else if (ball_y > FIELD_BOTTOM - BALL_S) {
         ball_y = FIELD_BOTTOM - BALL_S;
         ball_vy = (int8_t)-ball_vy;
-        sound_play(SND_WALL);
+        play(SND_WALL);
     }
 
     /* raquetas */
@@ -431,6 +588,224 @@ static void update_effects(void)
     if (ball_blink) ball_blink--;
 }
 
+/* Parpadea el marcador del ganador en la pantalla de fin */
+static void blink_winner(void)
+{
+    if (score1 > score2)
+        hal_set_bg(SCORE1_TX, SCORE_TY, (frame_count & 16) ? TILE_EMPTY : (uint8_t)(TILE_DIGIT0 + score1));
+    else
+        hal_set_bg(SCORE2_TX, SCORE_TY, (frame_count & 16) ? TILE_EMPTY : (uint8_t)(TILE_DIGIT0 + score2));
+}
+
+static void show_pause(void)
+{
+    draw_text(8, PAUSE_TY, "PAUSA");
+    draw_text(4, PAUSE_TY + 3, "SELECT MENU");
+}
+
+static void hide_pause(void)
+{
+    restore_row(PAUSE_TY);
+    restore_row(PAUSE_TY + 3);
+}
+
+/* ------------------------------------------------------------------ */
+/* 1 VS 1 por el cable de enlace                                       */
+/* ------------------------------------------------------------------ */
+
+/* xorshift de 16 bits (solo desplazamientos y XOR, sin multiplicar).
+ * Se mezcla con los botones de cada cuadro: dos consolas casi nunca
+ * llegan al mismo numero aunque se prendan al mismo tiempo. */
+static void stir_random(uint8_t b)
+{
+    azar ^= (uint16_t)(azar << 7);
+    azar ^= (uint16_t)(azar >> 9);
+    azar ^= (uint16_t)(azar << 8);
+    azar ^= (uint16_t)(b | ((uint16_t)frame_count << 8));
+    if (azar == 0) azar = 0xACE1;
+}
+
+static void new_link_id(void)
+{
+    stir_random(0);
+    mi_id = azar;
+}
+
+/* Descarta todo lo que haya llegado por el cable */
+static void link_drain(void)
+{
+    uint8_t buf[LINK_MAX_DATOS];
+    link_reset();
+    while (link_poll(buf))
+        ;
+}
+
+static void show_link_wait(void)
+{
+    state = ST_LINK_WAIT;
+    hide_all_sprites();
+    clear_screen();
+    draw_text(7, 2, "1 VS 1");
+    draw_text(5, 6, "CONECTANDO");
+    draw_text(2, 10, "UNE LAS CONSOLAS");
+    draw_text(2, 11, "CON EL CABLE");
+    draw_text(3, 16, "SELECT CANCELA");
+    link_drain();               /* restos de una partida anterior */
+    new_link_id();
+}
+
+static void show_link_lost(void)
+{
+    state = ST_LOST;
+    rol   = ROL_CPU;
+    hide_all_sprites();
+    clear_screen();
+    draw_text(4, 6, "SIN CONEXION");
+    draw_text(2, 10, "REVISA EL CABLE");
+    draw_text(4, 14, "SELECT MENU");
+}
+
+static void start_1vs1(uint8_t nuevo_rol)
+{
+    rol         = nuevo_rol;
+    remoto_btn  = 0;
+    remoto_prev = 0;
+    sin_datos   = 0;
+    seq_tx      = 0;
+    evento_snd  = 0;
+    game_reset();               /* campo, marcador "TU", estado SAQUE */
+    sound_play(SND_START);
+}
+
+/* Paquete de estado del maestro: todo lo que el esclavo necesita para dibujar */
+static void send_state(uint8_t st)
+{
+    uint8_t d[LINK_LEN_ESTADO];
+    d[0] = st;
+    d[1] = (uint8_t)p1_y;
+    d[2] = (uint8_t)p2_y;
+    d[3] = (uint8_t)(ball_x + 32);          /* la bola puede estar un poco fuera */
+    d[4] = (uint8_t)(ball_y + 32);          /* de la pantalla: se corre +32      */
+    d[5] = score1;
+    d[6] = score2;
+    d[7] = (uint8_t)(((p1_shake & 2) ? 1 : 0) | ((p2_shake & 2) ? 2 : 0) | ((ball_blink & 4) ? 4 : 0));
+    d[8] = seq_tx++;
+    d[9] = evento_snd;                      /* efecto de sonido de este cuadro (+1), 0 = ninguno */
+    evento_snd = 0;
+    link_send(LINK_ESTADO, d);
+}
+
+/* Vuelve al titulo; si es el maestro, le avisa al esclavo */
+static void go_to_title(void)
+{
+    if (rol == ROL_MAESTRO) {
+        send_state(ST_TITLE);
+        send_state(ST_TITLE);   /* dos veces por si una se pierde */
+    }
+    show_title();
+}
+
+static void update_link_wait(uint8_t pressed)
+{
+    uint8_t d[LINK_MAX_DATOS], t;
+
+    if (pressed & BTN_SELECT) { show_title(); return; }
+
+    /* Saluda 8 veces por segundo */
+    if ((frame_count & 7) == 0) {
+        d[0] = (uint8_t)(mi_id >> 8);
+        d[1] = (uint8_t)mi_id;
+        link_send(LINK_HOLA, d);
+    }
+
+    while ((t = link_poll(d)) != 0) {
+        if (t == LINK_HOLA) {
+            uint16_t otro = (uint16_t)((d[0] << 8) | d[1]);
+            if (otro == mi_id) { new_link_id(); continue; }   /* empate: otro numero */
+            start_1vs1((mi_id > otro) ? ROL_MAESTRO : ROL_ESCLAVO);
+            return;
+        }
+        /* Si ya llegan paquetes de juego, el otro ya decidio su rol */
+        if (t == LINK_ESTADO)  { start_1vs1(ROL_ESCLAVO); return; }
+        if (t == LINK_BOTONES) { start_1vs1(ROL_MAESTRO); return; }
+    }
+}
+
+/* Maestro: lee los botones que manda el esclavo.
+ * Devuelve 0 si se perdio la conexion. */
+static uint8_t read_slave(void)
+{
+    uint8_t d[LINK_MAX_DATOS], t;
+
+    if (sin_datos < 255) sin_datos++;
+    while ((t = link_poll(d)) != 0) {
+        if (t == LINK_BOTONES) {
+            remoto_btn = d[1];
+            sin_datos  = 0;
+        }
+    }
+    if (sin_datos > LINK_TIMEOUT) {
+        show_link_lost();
+        return 0;
+    }
+    return 1;
+}
+
+/* Esclavo: copia el estado del maestro y redibuja lo que cambio */
+static void apply_state(const uint8_t *d)
+{
+    uint8_t nuevo = d[0];
+
+    if (nuevo == ST_TITLE) { show_title(); return; }   /* el maestro salio al menu */
+    if (nuevo > ST_OVER) return;                       /* estado desconocido */
+
+    if (d[9] && d[9] <= SND_COUNT)                     /* el maestro oyo algo: yo tambien */
+        sound_play(snd_para_esclavo((uint8_t)(d[9] - 1)));
+
+    p1_y   = d[1];
+    p2_y   = d[2];
+    ball_x = (int16_t)d[3] - 32;
+    ball_y = (int16_t)d[4] - 32;
+    if (d[5] != score1 || d[6] != score2) {
+        score1 = d[5];
+        score2 = d[6];
+        draw_hud();
+    }
+    p1_shake   = (d[7] & 1) ? 2 : 0;
+    p2_shake   = (d[7] & 2) ? 2 : 0;
+    ball_blink = (d[7] & 4) ? 4 : 0;
+
+    if (nuevo != state) {
+        if (state == ST_PAUSE) hide_pause();
+        if (state == ST_OVER) { draw_field(); draw_hud(); }   /* revancha */
+        if (nuevo == ST_PAUSE) show_pause();
+        state = nuevo;
+        if (nuevo == ST_OVER) show_game_over();
+    }
+}
+
+static void update_slave(uint8_t b)
+{
+    uint8_t d[LINK_MAX_DATOS], t, llego = 0;
+
+    /* 1. Mandar mis botones (todos los cuadros, aunque no cambien) */
+    d[0] = seq_tx++;
+    d[1] = b;
+    link_send(LINK_BOTONES, d);
+
+    /* 2. Aplicar lo que mando el maestro */
+    while (rol == ROL_ESCLAVO && (t = link_poll(d)) != 0) {
+        if (t == LINK_ESTADO) { apply_state(d); llego = 1; }
+    }
+    if (rol != ROL_ESCLAVO) { link_drain(); return; }  /* volvio al titulo */
+
+    if (llego) sin_datos = 0;
+    else if (++sin_datos > LINK_TIMEOUT) { show_link_lost(); return; }
+
+    if (state == ST_OVER) blink_winner();
+    draw_sprites();
+}
+
 /* ------------------------------------------------------------------ */
 /* Interfaz publica                                                    */
 /* ------------------------------------------------------------------ */
@@ -447,65 +822,95 @@ void game_update(void)
 {
     uint8_t b       = hal_buttons();
     uint8_t pressed = (uint8_t)(b & (uint8_t)~prev_btn);   /* flanco de subida */
+    uint8_t rp      = 0;                                   /* lo que presiono J2 (1 VS 1) */
     prev_btn = b;
     frame_count++;
-    sound_update();                               /* avanza el efecto de sonido en curso */
+    stir_random(b);
+    sound_update();                                        /* avanza el efecto de sonido en curso */
+
+    /* 1 VS 1: el esclavo no calcula nada, solo manda botones y dibuja */
+    if (rol == ROL_ESCLAVO) {
+        update_slave(b);
+        return;
+    }
+    /* 1 VS 1: el maestro junta los botones de J2 con los suyos */
+    if (rol == ROL_MAESTRO) {
+        if (!read_slave()) return;
+        rp = (uint8_t)(remoto_btn & (uint8_t)~remoto_prev);
+        remoto_prev = remoto_btn;
+    }
 
     switch (state) {
     case ST_TITLE:
+        link_drain();                             /* nadie escucha el cable aqui */
         update_title(pressed);
-        if (pressed & (BTN_START | BTN_A)) {
-            sound_play(SND_START);
-            game_reset();
+        if (pressed & BTN_START) {
+            if (menu_pag == PAG_MODO)
+                show_menu_page((modo_sel == MODO_IA) ? PAG_IA : PAG_1VS1);
+            else if (menu_pag == PAG_IA)
+                { game_reset(); sound_play(SND_START); }          /* contra la CPU */
+            else if (enl_sel == ENL_LOCAL)
+                { rol = ROL_LOCAL; game_reset(); sound_play(SND_START); }
+            else
+                show_link_wait();                 /* por cable */
+        } else if ((pressed & BTN_SELECT) && menu_pag != PAG_MODO) {
+            show_menu_page(PAG_MODO);
         }
         return;                                   /* en el titulo no hay raquetas */
 
+    case ST_LINK_WAIT:
+        update_link_wait(pressed);
+        return;
+
+    case ST_LOST:
+        link_drain();
+        if (pressed & (BTN_SELECT | BTN_START)) show_title();
+        return;
+
     case ST_SERVE:
         move_player(b);
-        if (pressed & (BTN_START | BTN_A)) serve();
+        move_p2(b);
+        if ((pressed | rp) & BTN_START) serve();
         break;
 
     case ST_PLAY:
-        if (pressed & BTN_START) {                /* pausa */
+        if ((pressed | rp) & BTN_START) {         /* pausa (cualquiera de los dos) */
             state = ST_PAUSE;
-            sound_play(SND_PAUSE);
-            draw_text(8, PAUSE_TY, "PAUSA");
-            draw_text(4, PAUSE_TY + 3, "SELECT MENU");
+            show_pause();
+            play(SND_PAUSE);
             break;
         }
         move_player(b);
-        move_cpu();
+        if (rol == ROL_CPU) move_cpu();
+        else                move_p2(b);
         update_ball();
         update_effects();
         break;
 
     case ST_PAUSE:
-        if (pressed & BTN_START) {                /* continuar */
-            restore_row(PAUSE_TY);
-            restore_row(PAUSE_TY + 3);
+        if ((pressed | rp) & BTN_START) {         /* continuar */
+            hide_pause();
             state = ST_PLAY;
-            sound_play(SND_RESUME);
-        } else if (pressed & BTN_SELECT) {
-            show_title();
+            play(SND_RESUME);
+        } else if ((pressed | rp) & BTN_SELECT) {
+            go_to_title();
             return;
         }
         break;
 
     case ST_OVER:
-        /* parpadea el marcador del ganador; START revancha, SELECT o B al menu */
-        if (score1 > score2)
-            hal_set_bg(SCORE1_TX, SCORE_TY, (frame_count & 16) ? TILE_EMPTY : (uint8_t)(TILE_DIGIT0 + score1));
-        else
-            hal_set_bg(SCORE2_TX, SCORE_TY, (frame_count & 16) ? TILE_EMPTY : (uint8_t)(TILE_DIGIT0 + score2));
-        if (pressed & BTN_START) {
-            sound_play(SND_START);
+        /* parpadea el marcador del ganador; START revancha, SELECT al menu */
+        blink_winner();
+        if ((pressed | rp) & BTN_START) {
             game_reset();
-        } else if (pressed & (BTN_SELECT | BTN_B)) {
-            show_title();
+            play(SND_START);
+        } else if ((pressed | rp) & BTN_SELECT) {
+            go_to_title();
             return;
         }
         break;
     }
 
     draw_sprites();
+    if (rol == ROL_MAESTRO) send_state(state);
 }

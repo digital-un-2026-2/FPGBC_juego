@@ -9,6 +9,7 @@
  * SUPUESTOS que debes ajustar a tu hardware:
  *  - Pantalla de 160x144 (como Game Boy).
  *  - Tiles de 8x8 pixeles, 2 bits por pixel (4 colores), 16 bytes por tile.
+ *  - Un puerto serie (UART) en el conector de enlace para jugar 1 VS 1.
  */
 #ifndef HAL_H
 #define HAL_H
@@ -48,8 +49,19 @@ void    hal_hide_sprite(uint8_t id);
 
 uint8_t hal_buttons(void);
 
+/* Puerto de enlace (cable entre dos consolas) para el modo 1 VS 1.
+ * Se mueven bytes sueltos; el protocolo (paquetes) esta en link.c.
+ *  - hal_link_send: envia un byte (no espera respuesta).
+ *  - hal_link_recv: devuelve el siguiente byte recibido (0..255) o -1 si no
+ *    hay ninguno. NUNCA se queda esperando.
+ * En la FPGBC es el UART del SoC, que ya sale por el puerto GB Link (pines
+ * 27 = Serial In y 28 = Serial Out de la FPGA). En el PC es UDP (link_pc.c). */
+void    hal_link_send(uint8_t byte);
+int     hal_link_recv(void);
+
 /* Sonido: un canal de onda cuadrada. hz = frecuencia en Hz; 0 = silencio.
- * Las melodias las maneja sound.c; el HAL solo pone la frecuencia. */
+ * Las melodias las maneja sound.c; el HAL solo pone la frecuencia.
+ * Solo hace falta implementarla si se compila con -DUSE_SOUND. */
 void    hal_tone(uint16_t hz);
 
 /* Fin de cuadro: presenta la imagen y espera al siguiente VBlank (60 Hz).

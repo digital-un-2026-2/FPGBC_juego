@@ -8,7 +8,7 @@ int main(void)
 
     do {
         game_update();
-    } while (hal_frame());
+    } while (hal_frame());   /* hal_frame() dibuja y espera el VBlank */
 
     hal_shutdown();
     return 0;
