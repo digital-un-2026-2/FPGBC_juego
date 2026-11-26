@@ -30,11 +30,9 @@ Videojuego de plataformas en 2D desarrollado en **C** con la suite de desarrollo
 ## 2. Estructura del Proyecto
 
 ```text
-FPGBC_GITHUB_FINAL/
+FPGBC_juego/
 ├── README.md                           # Documentación general del proyecto
-├── INFORME_REVISION_TECNICA.md         # Auditoría técnica e inventario de entrega
 ├── compile.bat                         # Acceso directo para compilar el juego
-├── .gitignore                          # Configuración de exclusiones para Git
 ├── codigo/                             # Código fuente C y cabeceras aprobadas
 │   ├── juego_completo.c                # Núcleo y bucle principal del videojuego
 │   ├── Mapa.c / Mapa.h                 # Definición de tilesets del escenario y tipografía
