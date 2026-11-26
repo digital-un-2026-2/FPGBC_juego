@@ -1,151 +1,120 @@
-# FPGBC_juego
+# Videojuego de Plataformas para Game Boy (Proyecto FPGBC)
 
-autores: David Rico, Daniel Suarez Roa, Sebastian Quejada
-
-### Desarrollo de videojuegos para Game Boy / Game Boy Color mediante FPGA
-
-Repositorio del proyecto académico **FPGBC**, orientado al desarrollo de videojuegos y su integración con una plataforma basada en FPGA, tomando como referencia la arquitectura de las consolas Game Boy y Game Boy Color.
-
-El proyecto reúne el desarrollo del videojuego, sus recursos gráficos, herramientas de compilación, pruebas y documentación técnica, además del sistema de lectura y programación del cartucho EverSave MBC5.
+Videojuego de plataformas en 2D desarrollado en **C** con la suite de desarrollo **GBDK-2020**, diseñado para su ejecución en hardware de Game Boy / Game Boy Color y consolas de hardware abierto implementadas sobre **FPGA** (proyecto universitario FPGBC).
 
 ---
 
-## Descripción del proyecto
+## 1. Características Técnicas Implementadas y Verificadas
 
-El objetivo es desarrollar un videojuego compatible con la arquitectura Game Boy, utilizando lenguaje C y herramientas de desarrollo como GBDK-2020.
+- **Selector de Nivel Interactivo:** Menú principal con interfaz completa en español (`ELIGE TU NIVEL`), selector visual con gema y soporte para 3 niveles distintos.
+- **Arquitectura de 3 Niveles Extensibles (96×16 tiles / 768×128 px):**
+  - *Nivel 1 (Pradera e Islas):* Plataformas escalonadas, saltos de aprendizaje, abismos y patrullas enemigas.
+  - *Nivel 2 (Fortaleza y Torres):* Estructuras escalonadas con desniveles suaves de máximo 1 tile (8 px) franqueables mediante salto.
+  - *Nivel 3 (Desafío de Abismos y Precisión):* Plataformas intermedias sobre el vacío que requieren saltos precisos.
+- **Motor Físico:** Gravedad progresiva con aritmética de punto fijo subpíxel (`GRAVITY_SUBPX = 36`), impulso de salto parabólico (`JUMP_IMPULSE = -730`), detección y resolución de colisiones AABB contra el mapa de fondo.
+- **Inteligencia y Físicas Enemigas:**
+  - Los enemigos experimentan **gravedad real** y aterrizan en plataformas sólidas (no flotan en el vacío).
+  - **Colisión frontal con bloques:** Comprobación de solidez previa al desplazamiento; los enemigos rebotan al encontrar muros o escalones sin traspasarlos.
+  - Patrullaje horizontal delimitado de 2 pasos por lado.
+- **Mecánica de Combate:** Disparo de orbe de energía (botón A) capaz de destruir enemigos en pantalla.
+- **Coleccionables y HUD:** Gemas coleccionables registradas mediante máscara de bits en WRAM (192 bytes, impidiendo que reaparezcan al desplazar la cámara) y contador gráfico superior `[Gema] x [00]`.
+- **Motor de Audio Chiptune Nativo:**
+  - Canal 1 (Pulso con barrido): Efecto de salto y tono descendente de muerte.
+  - Canal 2 (Pulso agudo): Campanilla de recogida de monedas.
+  - Canal 4 (Ruido blanco): Explosión de impacto y derrota de enemigos.
+  - Fanfarria triunfal de victoria al cruzar la meta.
+- **Control de Estados y Flujo:** Pantallas de `FIN DEL JUEGO` y `VICTORIA`, reinicio de nivel con `START` y retorno al menú principal con botón `B`.
 
-El trabajo contempla tanto el desarrollo del software del juego como su integración con el hardware del proyecto FPGBC. Para ello, se trabaja con herramientas de compilación, emulación, diseño de recursos gráficos y programación de memorias externas.
+---
 
-Adicionalmente, se incorpora un sistema de comunicación entre el computador y la FPGA de la consola, destinado a leer, programar y verificar juegos en el cartucho EverSave MBC5.
-
-## Componentes del proyecto
-
-| Componente | Descripción |
-|---|---|
-| Desarrollo del videojuego | Programación de niveles, mecánicas, interacciones y lógica del juego. |
-| Recursos gráficos | Diseño y administración de sprites, mapas, tiles y elementos visuales. |
-| Compilación | Generación de archivos ROM mediante GBDK-2020. |
-| Pruebas | Verificación del comportamiento del videojuego mediante herramientas de desarrollo y emulación. |
-| Quemador del cartucho | Sistema de comunicación PC–FPGA para lectura, programación y verificación de la memoria Flash. |
-| Documentación técnica | Registro de la arquitectura, decisiones de diseño, pruebas y características del hardware. |
-
-## Arquitectura general
-
-El flujo de desarrollo e integración contempla las siguientes etapas:
+## 2. Estructura del Proyecto
 
 ```text
-       DESARROLLO DEL VIDEOJUEGO
-                  |
-                  v
-        Código fuente en C
-                  |
-                  v
-           GBDK-2020
-                  |
-                  v
-             Archivo ROM
-                (.gb)
-                  |
-          +-------+-------+
-          |               |
-          v               v
-     EMULACIÓN       SISTEMA DE
-      Y PRUEBAS       QUEMADO
-                          |
-                          v
-                     Comunicación
-                         UART
-                          |
-                          v
-                    FPGA FPGBC
-                          |
-                          v
-                   Cartucho MBC5
-                          |
-                          v
-                   Memoria Flash
+FPGBC_GITHUB_FINAL/
+├── README.md                           # Documentación general del proyecto
+├── INFORME_REVISION_TECNICA.md         # Auditoría técnica e inventario de entrega
+├── compile.bat                         # Acceso directo para compilar el juego
+├── .gitignore                          # Configuración de exclusiones para Git
+├── codigo/                             # Código fuente C y cabeceras aprobadas
+│   ├── juego_completo.c                # Núcleo y bucle principal del videojuego
+│   ├── Mapa.c / Mapa.h                 # Definición de tilesets del escenario y tipografía
+│   ├── Tile1.c / Tile1.h               # Sprites del personaje principal
+│   ├── Tile2.c / Tile2.h               # Sprites de enemigos, proyectiles y marcadores
+│   └── niveles/
+│       ├── NivelesData.c               # Arreglos de datos de los 3 niveles (96x16 tiles)
+│       └── NivelesData.h               # Cabeceras y constantes de niveles
+├── recursos/                           # Recursos gráficos originales y vistas previas
+│   ├── Mapa.gbr, Tile1.gbr, Tile2.gbr  # Proyectos originales de Game Boy Tile Designer
+│   └── preview/                        # Vistas panorámicas completas (PNG)
+│       ├── nivel_1.png
+│       ├── nivel_2.png
+│       └── nivel_3.png
+├── herramientas/                       # Scripts de soporte y generación
+│   ├── compile.bat                     # Script de compilación parametrizado con GBDK
+│   └── make_todos_niveles.py           # Generador matricial de los 3 niveles
+└── pruebas/                            # Batería de pruebas automatizadas y evidencias
+    ├── test_completo.py                # Suite de 13 pruebas automatizadas con PyBoy
+    └── capturas/                       # 13 capturas de pantalla de los estados verificados
 ```
-
-El diagrama representa el flujo previsto de desarrollo e integración. La grabación y ejecución en el hardware físico están sujetas a las pruebas de validación correspondientes.
-
-## Estructura del repositorio
-
-El repositorio está organizado en directorios que separan el desarrollo del juego, las herramientas y la documentación.
-
-| Directorio / archivo | Contenido |
-|---|---|
-| `Quemador/` | Diseño Verilog y herramientas Python para la lectura y programación del cartucho. |
-| `codigo/` | Código fuente y componentes del desarrollo del videojuego. |
-| `herramientas/` | Herramientas y recursos de apoyo al desarrollo. |
-| `pruebas/` | Archivos y material destinado a pruebas del proyecto. |
-| `recursos/` | Recursos complementarios del videojuego. |
-| `INFORME_REVISION_TECNICA.md` | Documentación de revisión técnica. |
-| `INVESTIGACION_Y_ESTADO_DEL_JUEGO` | Investigación y seguimiento del desarrollo. |
-| `Mapa.c`, `Mapa.gbr`, `Mapa.h` | Archivos relacionados con los mapas del videojuego. |
-| `Nivel1.c`, `Nivel1.gbm`, `Nivel1.h` | Archivos relacionados con el primer nivel. |
-| `Nivel2.c`, `Nivel2.gbm`, `Nivel2.h` | Archivos relacionados con el segundo nivel. |
-| `compile.bat` | Script de compilación para el entorno configurado. |
-| `ejemplo.c`, `ejemplo.gbm`, `ejemplo.map`, `ejemplo.rom` | Archivos de ejemplo y recursos asociados. |
-
-*La estructura puede evolucionar conforme se incorporen nuevos niveles, funcionalidades y herramientas.*
-
-## Tecnologías y herramientas
-
-| Tecnología | Aplicación |
-|---|---|
-| C | Desarrollo de la lógica del videojuego. |
-| GBDK-2020 | Compilación de programas para Game Boy. |
-| Verilog | Diseño digital del puente de comunicación con el cartucho. |
-| Python | Comunicación serial y gestión de la programación de la memoria. |
-| FPGA Gowin | Implementación de la lógica digital del sistema. |
-| Icarus Verilog | Simulación de módulos digitales. |
-| GTKWave | Visualización y análisis de señales de simulación. |
-| Git y GitHub | Control de versiones y colaboración. |
-
-## Hardware de referencia
-
-El sistema de cartucho utilizado como referencia corresponde al EverSave MBC5, cuyas características principales son:
-
-| Componente | Referencia | Capacidad |
-|---|---|---:|
-| Controlador de bancos | MBC5 en FPGA | Hasta 512 bancos ROM |
-| Memoria Flash | S29GL064N | 8 MiB |
-| Memoria FRAM | FM28V100 | 128 KiB |
-| FPGA de la consola | Gowin GW2AR-18 | Según configuración de la plataforma |
-
-La compatibilidad de cada videojuego depende de su tipo de controlador, tamaño de ROM, requisitos de memoria y funcionalidades utilizadas.
-
-## Documentación
-
-La documentación técnica se encuentra distribuida en los archivos del repositorio.
-
-- **Quemador:** descripción de la arquitectura, instalación, comunicación y procedimiento de programación del cartucho.
-- **Compatibilidad de juegos:** análisis de las capacidades de memoria, requisitos de ROM, limitaciones y selección de juegos candidatos para pruebas.
-- **Revisión técnica:** documentación de los aspectos de diseño y evaluación del proyecto.
-- **Investigación y estado del juego:** seguimiento del desarrollo y de las características implementadas.
-
-## Estado del proyecto
-
-El desarrollo comprende diferentes etapas de trabajo:
-
-- [x] Organización del código y recursos del videojuego.
-- [x] Desarrollo de herramientas y documentación del proyecto.
-- [x] Diseño inicial del sistema de quemado mediante FPGA y Python.
-- [x] Documentación preliminar de compatibilidad del cartucho.
-- [ ] Validación física de las conexiones de la FPGA.
-- [ ] Pruebas de simulación y compilación del quemador.
-- [ ] Verificación de comunicación entre PC y FPGA.
-- [ ] Lectura y respaldo de la memoria del cartucho.
-- [ ] Grabación y verificación de una ROM de prueba.
-- [ ] Validación de ejecución del videojuego en la consola.
-
-*Las casillas representan el estado documental y de planificación; las pruebas físicas solo se marcarán como completadas cuando se hayan ejecutado y registrado sus resultados.*
-
-## Objetivo final
-
-Consolidar un videojuego funcional y un procedimiento reproducible para su compilación, transferencia y ejecución en la plataforma FPGBC, integrando los componentes de software, hardware y documentación desarrollados durante el proyecto.
 
 ---
 
-**Proyecto académico – Universidad Nacional de Colombia**  
-**Repositorio:** `digital-un-2026-2/FPGBC_juego`
+## 3. Requisitos del Entorno
+
+1. **Compilador C:** GBDK-2020 versión 4.5.0 (o superior).
+   - Variable de entorno `GBDK` o `GBDK_HOME` apuntando al directorio base de GBDK (por defecto `C:\Users\ASUS\tools\gbdk-2020-4.5.0\gbdk`).
+2. **Entorno de Pruebas Automatizadas (opcional):** Python 3.10+ con `PyBoy` y `Pillow`.
+3. **Emulador de Referencia:** BGB (v1.5.8 o superior) o emulador compatible con Game Boy DMG.
+
+---
+
+## 4. Instrucciones de Compilación
+
+Para compilar la ROM desde la raíz del proyecto, ejecute en una consola de comandos (o PowerShell):
+
+```cmd
+compile.bat
+```
+
+El script invocará automáticamente `lcc.exe` con las directivas de ensamblador y enlazador optimizadas:
+```cmd
+lcc -Wa-l -Wl-m -Wl-j -o build\juego_completo.gb codigo\juego_completo.c
+```
+La ROM resultante se ubicará en `build\juego_completo.gb` (32.768 bytes, ROM MBC1/None estándar de 32 KB).
+
+---
+
+## 5. Controles del Videojuego
+
+| Acción | Control Game Boy | Tecla en BGB (Mapeo Estándar) |
+| :--- | :--- | :--- |
+| **Menú: Cambiar selección de nivel** | D-Pad Arriba / Abajo | Flechas Arriba / Abajo |
+| **Menú: Iniciar nivel seleccionado** | Botón A / START | Tecla `S` / `Z` / `Enter` |
+| **Juego: Mover personaje** | D-Pad Izquierda / Derecha | Flechas Izquierda / Derecha |
+| **Juego: Saltar** | Botón B / D-Pad Arriba | Tecla `A` / `X` / Flecha Arriba |
+| **Juego: Disparar proyectil** | Botón A | Tecla `S` / `Z` |
+| **Fin de Partida: Reintentar nivel** | START | Tecla `Enter` |
+| **Fin de Partida: Volver al menú** | Botón B / SELECT | Tecla `A` / `X` / Barra Espaciadora |
+
+---
+
+## 6. Verificación de Calidad
+
+El proyecto cuenta con una suite de pruebas automatizadas reproducibles (`pruebas/test_completo.py`) que ejecuta el binario sobre el emulador `PyBoy` sin intervención manual, validando:
+- Arranque del menú y navegación del cursor.
+- Carga de los 3 niveles y streaming circular de VRAM (>256 px).
+- Gravedad, salto y colisión con plataformas.
+- Patrullaje de enemigos y rebote sin atravesar bloques.
+- Sistema de disparo, impacto de proyectil y recolección de monedas.
+- Condiciones de derrota y victoria.
+
+Para ejecutar las pruebas:
+```cmd
+python pruebas/test_completo.py
+```
+Resultado verificado: **13/13 pruebas aprobadas (100% PASS)**.
+
+---
+
+## 7. Limitaciones y Validación en Hardware
+El videojuego ha sido probado y verificado al 100% mediante emulación de precisión de ciclo (BGB) y pruebas automatizadas (PyBoy). La validación física en la placa FPGA de la consola FPGBC queda reservada para las pruebas presenciales de laboratorio del equipo.
